@@ -1,19 +1,10 @@
-package main
+package tui
 
 import (
 	"fmt"
-	"os"
 
 	tea "charm.land/bubbletea/v2"
 )
-
-func main() {
-	p := tea.NewProgram(initialModel())
-	if _, err := p.Run(); err != nil {
-		fmt.Printf("Something went wrong: %v\n", err)
-		os.Exit(1)
-	}
-}
 
 type model struct {
 	choices  []string
@@ -21,7 +12,7 @@ type model struct {
 	selected map[int]struct{}
 }
 
-func initialModel() model {
+func InitialModel() model {
 	return model{
 		choices:  []string{"Buy carrots", "Buy potatoes", "Buy tomatoes"},
 		selected: make(map[int]struct{}),

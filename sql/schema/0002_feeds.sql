@@ -5,6 +5,7 @@ create table if not exists feeds (
     updated_at timestamptz not null,
     name text not null,
     url text not null,
+    last_fetched_at timestamptz,
     unique(url)
 );
 

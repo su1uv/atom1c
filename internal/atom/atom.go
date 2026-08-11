@@ -2,11 +2,16 @@ package atom
 
 import (
 	"context"
+	"database/sql"
 	"encoding/xml"
 	"fmt"
 	"html"
 	"io"
 	"net/http"
+	"time"
+
+	"github.com/su1uv/atom1c/internal"
+	"github.com/su1uv/atom1c/internal/db"
 )
 
 type AtomFeed struct {
@@ -21,6 +26,31 @@ type AtomEntry struct {
 	Link      string `xml:"link"`
 	Content   string `xml:"content"`
 	Published string `xml:"published"`
+}
+
+func ScrapeFeeds(s *internal.State) error {
+	nextFeed, err := s.Db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return err
+	}
+
+	feed, err := fetchFeed(context.Background(), nextFeed.Url)
+	if err != nil {
+		return err
+	}
+
+	if err = s.Db.MarkFeedAsFetched(context.Background(), db.MarkFeedAsFetchedParams{
+		ID:            nextFeed.ID,
+		UpdatedAt:     time.Now(),
+		LastFetchedAt: sql.NullTime{Time: time.Now(), Valid: true},
+	}); err != nil {
+		return err
+	}
+
+	fmt.Printf("Feed fetched: %v", feed.Title)
+	// TODO: Create posts with the feed's entries
+
+	return nil
 }
 
 func fetchFeed(ctx context.Context, feedURL string) (*AtomFeed, error) {

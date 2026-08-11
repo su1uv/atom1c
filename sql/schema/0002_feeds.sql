@@ -5,9 +5,7 @@ create table if not exists feeds (
     updated_at timestamptz not null,
     name text not null,
     url text not null,
-    unique(url),
-    user_id uuid not null,
-    foreign key (user_id) references users(id)
+    unique(url)
 );
 
 -- +goose Down

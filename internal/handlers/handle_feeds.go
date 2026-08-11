@@ -30,3 +30,12 @@ func HandleAddFeed(s *internal.State, params AddFeedParams) error {
 	fmt.Printf("\n- %v feed added.\n", feed.Name)
 	return nil
 }
+
+func HandleGetFeeds(s *internal.State) ([]db.Feed, error) {
+	feeds, err := s.Db.GetFeeds(context.Background())
+	if err != nil {
+		return []db.Feed{}, err
+	}
+
+	return feeds, nil
+}

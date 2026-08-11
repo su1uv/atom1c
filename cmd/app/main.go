@@ -1,15 +1,20 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
+	"log"
 	"os"
+
+	_ "github.com/lib/pq"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
-	_ "github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 	"github.com/su1uv/atom1c/internal"
+	"github.com/su1uv/atom1c/internal/db"
+	"github.com/su1uv/atom1c/internal/handlers"
 	"github.com/su1uv/atom1c/internal/ui"
 )
 
@@ -119,10 +124,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, m.keys.insertItem):
 			m.delegateKeys.Remove.SetEnabled(true)
-			newItem := ui.GenerateItem()
-			insCmd := m.list.InsertItem(0, newItem)
-			statusCmd := m.list.NewStatusMessage(m.styles.StatusMessage.Render("Added " + newItem.Title()))
-			return m, tea.Batch(insCmd, statusCmd)
+			return m, nil
 		}
 	}
 
@@ -155,10 +157,22 @@ func initialModel() model {
 		Cfg: &cfg,
 	}
 
-	const numItems = 5
-	items := make([]list.Item, numItems)
-	for i := range numItems {
-		items[i] = ui.GenerateItem()
+	dbConn, err := sql.Open("postgres", cfg.DbURL)
+	if err != nil {
+		log.Fatalf("connection to database failed: %v", err)
+	}
+
+	dbQueries := db.New(dbConn)
+	state.Db = dbQueries
+
+	feeds, err := handlers.HandleGetFeeds(&state)
+	if err != nil {
+		log.Fatalf("error getting feeds list: %v", err)
+	}
+
+	items := make([]list.Item, len(feeds))
+	for i, feed := range feeds {
+		items[i] = ui.GenerateFeeds(feed)
 	}
 
 	delegate := ui.NewItemDelegate(delegateKeys, &m.styles)

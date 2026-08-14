@@ -20,22 +20,19 @@ type feedsModel struct {
 	list   list.Model
 }
 
-func (m *feedsModel) updateListProperties() {
-	h, v := m.common.styles.app.GetFrameSize()
-	m.list.SetSize(m.common.width-h, m.common.height-v)
+func (m *feedsModel) setSize(w, h int) {
+	x, y := m.common.styles.app.GetFrameSize()
+	m.list.SetSize((w-x)/2, h-y)
+}
 
-	m.common.styles = newStyles(m.common.isDarkBG)
-	m.list.Styles.Title = m.common.styles.title
+func (m feedsModel) Init() tea.Cmd {
+	return nil
 }
 
 func (m feedsModel) Update(msg tea.Msg) (feedsModel, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.common.width, m.common.height = msg.Width, msg.Height
-		m.updateListProperties()
-
 	case tea.KeyPressMsg:
 		if m.list.FilterState() == list.Filtering {
 			break
@@ -62,6 +59,8 @@ func (m feedsModel) Update(msg tea.Msg) (feedsModel, tea.Cmd) {
 }
 
 func (m feedsModel) View() tea.View {
-	v := tea.NewView(m.common.styles.app.Render(m.list.View()))
+	v := tea.NewView(
+		m.common.styles.app.Render(m.list.View()),
+	)
 	return v
 }

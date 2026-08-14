@@ -11,22 +11,15 @@ type postsModel struct {
 	list   list.Model
 }
 
-func (m *postsModel) updateListProperties() {
-	h, v := m.common.styles.app.GetFrameSize()
-	m.list.SetSize(m.common.width-h, m.common.height-v)
-
-	m.common.styles = newStyles(m.common.isDarkBG)
-	m.list.Styles.Title = m.common.styles.title
+func (m *postsModel) setSize(w, h int) {
+	x, y := m.common.styles.app.GetFrameSize()
+	m.list.SetSize((w-x)/2, h-y)
 }
 
 func (m postsModel) Update(msg tea.Msg) (postsModel, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.common.width, m.common.height = msg.Width, msg.Height
-		m.updateListProperties()
-
 	case tea.KeyPressMsg:
 		if m.list.FilterState() == list.Filtering {
 			break
@@ -51,7 +44,7 @@ func (m postsModel) Update(msg tea.Msg) (postsModel, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m postsModel) View() tea.View {
-	v := tea.NewView(m.common.styles.app.Render(m.list.View()))
+func (m postsModel) View() string {
+	v := m.common.styles.app.Render(m.list.View())
 	return v
 }

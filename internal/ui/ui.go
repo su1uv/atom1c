@@ -19,7 +19,6 @@ func NewProgram(s *internal.State) *tea.Program {
 func newModel(s *internal.State) tea.Model {
 	common := commonModel{}
 
-	delegateKeys := newDelegateKeyMap()
 	keys := newListKeyMap()
 
 	common.styles = newStyles(false)
@@ -38,22 +37,18 @@ func newModel(s *internal.State) tea.Model {
 		}
 	}
 
-	delegateFeeds := newItemDelegate(delegateKeys, &common.styles)
-	delegatePosts := newItemDelegate(delegateKeys, &common.styles)
-
-	feedList := list.New(mockFeeds, delegateFeeds, 0, 0)
+	feedList := list.New(mockFeeds, list.NewDefaultDelegate(), 0, 0)
 	feedList.Title = "Feeds"
 	feedList.Styles.Title = common.styles.title
 	feedList.SetShowHelp(false)
 
-	postsList := list.New(mockPosts, delegatePosts, 0, 0)
+	postsList := list.New(mockPosts, list.NewDefaultDelegate(), 0, 0)
 	postsList.Title = "Posts"
 	postsList.Styles.Title = common.styles.title
 	postsList.SetShowHelp(false)
 
 	common.state = s
 	common.keys = keys
-	common.delegateKeys = delegateKeys
 	common.focus = focusFeeds
 
 	feeds := feedsModel{
@@ -83,15 +78,13 @@ const (
 )
 
 type commonModel struct {
-	state        *internal.State
-	width        int
-	height       int
-	isDarkBG     bool
-	styles       Styles
-	keys         *listKeyMap
-	delegateKeys *delegateKeyMap
-
-	focus focusState
+	state    *internal.State
+	isDarkBG bool
+	styles   Styles
+	keys     *listKeyMap
+	width    int
+	height   int
+	focus    focusState
 }
 
 type model struct {
@@ -134,7 +127,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.common.height = msg.Height
 		m.common.width = msg.Width
+		m.feeds.setSize(msg.Width, msg.Height)
+		m.posts.setSize(msg.Width, msg.Height)
+	}
 
+	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -156,7 +153,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() tea.View {
 	feedsContent := m.feeds.View().Content
-	postsContent := m.posts.View().Content
+	postsContent := m.posts.View()
 	v := tea.NewView(lipgloss.JoinHorizontal(lipgloss.Top, feedsContent, postsContent))
 	v.AltScreen = true
 	return v

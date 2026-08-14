@@ -6,21 +6,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-type item struct {
-	name string
-	url  string
-}
-
-func (f item) Title() string       { return f.name }
-func (f item) Description() string { return f.url }
-func (f item) FilterValue() string { return f.name }
-
-type feedsModel struct {
+type postsModel struct {
 	common *commonModel
 	list   list.Model
 }
 
-func (m *feedsModel) updateListProperties() {
+func (m *postsModel) updateListProperties() {
 	h, v := m.common.styles.app.GetFrameSize()
 	m.list.SetSize(m.common.width-h, m.common.height-v)
 
@@ -28,7 +19,7 @@ func (m *feedsModel) updateListProperties() {
 	m.list.Styles.Title = m.common.styles.title
 }
 
-func (m feedsModel) Update(msg tea.Msg) (feedsModel, tea.Cmd) {
+func (m postsModel) Update(msg tea.Msg) (postsModel, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
@@ -45,15 +36,14 @@ func (m feedsModel) Update(msg tea.Msg) (feedsModel, tea.Cmd) {
 		case key.Matches(msg, m.common.keys.togglePagination):
 			m.list.SetShowPagination(!m.list.ShowPagination())
 
-		case key.Matches(msg, m.common.keys.selectItem):
-			m.common.focus = focusPosts
+		case key.Matches(msg, m.common.keys.deselectItem):
+			m.common.focus = focusFeeds
 			return m, nil
 		}
 	}
-	if m.common.focus != focusFeeds {
+	if m.common.focus != focusPosts {
 		return m, nil
 	}
-
 	newListModel, cmd := m.list.Update(msg)
 	m.list = newListModel
 	cmds = append(cmds, cmd)
@@ -61,7 +51,7 @@ func (m feedsModel) Update(msg tea.Msg) (feedsModel, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m feedsModel) View() tea.View {
+func (m postsModel) View() tea.View {
 	v := tea.NewView(m.common.styles.app.Render(m.list.View()))
 	return v
 }

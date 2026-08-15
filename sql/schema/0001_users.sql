@@ -1,5 +1,5 @@
 -- +goose Up
-create table if not exists users (
+create table users (
     id uuid primary key,
     created_at timestamptz not null,
     updated_at timestamptz not null,
@@ -8,4 +8,4 @@ create table if not exists users (
 );
 
 -- +goose Down
-drop table if exists users;
+drop table users;

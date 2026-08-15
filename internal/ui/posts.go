@@ -8,12 +8,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-type postsModel struct {
-	common *commonModel
-	list   list.Model
-}
-
 func initialPostsModel(c *commonModel) postsModel {
+	// TODO: remove mocks get actual data
 	const numMocks = 25
 	mockPosts := make([]list.Item, numMocks)
 	for i := range numMocks {
@@ -32,6 +28,11 @@ func initialPostsModel(c *commonModel) postsModel {
 		common: c,
 		list:   postsList,
 	}
+}
+
+type postsModel struct {
+	common *commonModel
+	list   list.Model
 }
 
 func (m *postsModel) setSize(w, h int) {

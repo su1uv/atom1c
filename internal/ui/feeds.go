@@ -8,16 +8,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-type item struct {
-	name string
-	url  string
-}
-
-func (f item) Title() string       { return f.name }
-func (f item) Description() string { return f.url }
-func (f item) FilterValue() string { return f.name }
-
 func initialFeedsModel(c *commonModel) feedsModel {
+	// TODO: remove mocks, get actual data
 	const numMocks = 25
 	mockFeeds := make([]list.Item, numMocks)
 	for i := range numMocks {

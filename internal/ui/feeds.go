@@ -45,7 +45,7 @@ type feedsModel struct {
 
 func (m *feedsModel) setSize(w, h int) {
 	x, y := m.common.styles.list.GetFrameSize()
-	m.list.SetSize((w-x)/2, h-y)
+	m.list.SetSize((w-x)/2, h-y-helpHeight)
 	m.common.styles.list = m.common.styles.list.Width((w) / 2)
 }
 

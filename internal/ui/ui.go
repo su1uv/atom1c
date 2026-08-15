@@ -1,11 +1,14 @@
 package ui
 
 import (
+	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/su1uv/atom1c/internal"
 )
+
+const helpHeight = 3
 
 func NewProgram(s *internal.State) *tea.Program {
 	m := newModel(s)
@@ -30,6 +33,7 @@ func newModel(s *internal.State) tea.Model {
 		common: &common,
 		feeds:  feeds,
 		posts:  posts,
+		help:   help.New(),
 	}
 
 	return m
@@ -56,29 +60,7 @@ type model struct {
 	common *commonModel
 	feeds  feedsModel
 	posts  postsModel
-}
-
-type listKeyMap struct {
-	togglePagination key.Binding
-	selectItem       key.Binding
-	deselectItem     key.Binding
-}
-
-func newListKeyMap() *listKeyMap {
-	return &listKeyMap{
-		togglePagination: key.NewBinding(
-			key.WithKeys("P"),
-			key.WithHelp("P", "toggle pagination"),
-		),
-		selectItem: key.NewBinding(
-			key.WithKeys("tab"),
-			key.WithHelp("tab", "select item"),
-		),
-		deselectItem: key.NewBinding(
-			key.WithKeys("shift+tab"),
-			key.WithHelp("shift+tab", "go back"),
-		),
-	}
+	help   help.Model
 }
 
 func (m model) Init() tea.Cmd {
@@ -98,8 +80,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
+		switch {
+		case key.Matches(msg, m.common.keys.quit):
 			return m, tea.Quit
 		}
 	}
@@ -117,9 +99,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() tea.View {
+	help := m.help.ShortHelpView([]key.Binding{
+		m.common.keys.next,
+		m.common.keys.prev,
+		m.common.keys.nextPage,
+		m.common.keys.prevPage,
+		m.common.keys.filter,
+		m.common.keys.selectItem,
+		m.common.keys.deselectItem,
+		m.common.keys.togglePagination,
+		m.common.keys.quit,
+	})
+
 	feedsContent := m.feeds.View().Content
 	postsContent := m.posts.View().Content
-	v := tea.NewView(m.common.styles.app.Render(lipgloss.JoinHorizontal(lipgloss.Top, feedsContent, postsContent)))
+	v := tea.NewView(m.common.styles.app.Render(lipgloss.JoinHorizontal(lipgloss.Top, feedsContent, postsContent) + "\n\n" + help))
 	v.AltScreen = true
 	return v
 }

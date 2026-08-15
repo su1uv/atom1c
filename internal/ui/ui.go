@@ -1,10 +1,7 @@
 package ui
 
 import (
-	"fmt"
-
 	"charm.land/bubbles/v2/key"
-	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/su1uv/atom1c/internal"
@@ -22,44 +19,12 @@ func newModel(s *internal.State) tea.Model {
 	keys := newListKeyMap()
 
 	common.styles = newStyles(false)
-
-	const numMocks = 25
-	mockFeeds := make([]list.Item, numMocks)
-	mockPosts := make([]list.Item, numMocks)
-	for i := range numMocks {
-		mockFeeds[i] = item{
-			name: fmt.Sprintf("Feed %v", i),
-			url:  "https://random.com",
-		}
-		mockPosts[i] = item{
-			name: fmt.Sprintf("Posts %v", i),
-			url:  "https://random-post.com",
-		}
-	}
-
-	feedList := list.New(mockFeeds, list.NewDefaultDelegate(), 0, 0)
-	feedList.Title = "Feeds"
-	feedList.Styles.Title = common.styles.title
-	feedList.SetShowHelp(false)
-
-	postsList := list.New(mockPosts, list.NewDefaultDelegate(), 0, 0)
-	postsList.Title = "Posts"
-	postsList.Styles.Title = common.styles.title
-	postsList.SetShowHelp(false)
-
 	common.state = s
 	common.keys = keys
 	common.focus = focusFeeds
 
-	feeds := feedsModel{
-		common: &common,
-		list:   feedList,
-	}
-
-	posts := postsModel{
-		common: &common,
-		list:   postsList,
-	}
+	feeds := initialFeedsModel(&common)
+	posts := initialPostsModel(&common)
 
 	m := model{
 		common: &common,

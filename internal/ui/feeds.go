@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
@@ -14,6 +16,27 @@ type item struct {
 func (f item) Title() string       { return f.name }
 func (f item) Description() string { return f.url }
 func (f item) FilterValue() string { return f.name }
+
+func initialFeedsModel(c *commonModel) feedsModel {
+	const numMocks = 25
+	mockFeeds := make([]list.Item, numMocks)
+	for i := range numMocks {
+		mockFeeds[i] = item{
+			name: fmt.Sprintf("Feed %v", i),
+			url:  "https://random.com",
+		}
+	}
+
+	feedList := list.New(mockFeeds, list.NewDefaultDelegate(), 0, 0)
+	feedList.Title = "Feeds"
+	feedList.Styles.Title = c.styles.title
+	feedList.SetShowHelp(false)
+
+	return feedsModel{
+		common: c,
+		list:   feedList,
+	}
+}
 
 type feedsModel struct {
 	common *commonModel

@@ -15,7 +15,7 @@ func newStyles(isDarkBG bool) Styles {
 		app: lipgloss.NewStyle().
 			Padding(1, 2).
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("235")),
+			BorderForeground(lipgloss.Color("#73D2DE")),
 		title: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFFDF5")).
 			Background(lipgloss.Color("#25A065")).

@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
@@ -9,6 +11,27 @@ import (
 type postsModel struct {
 	common *commonModel
 	list   list.Model
+}
+
+func initialPostsModel(c *commonModel) postsModel {
+	const numMocks = 25
+	mockPosts := make([]list.Item, numMocks)
+	for i := range numMocks {
+		mockPosts[i] = item{
+			name: fmt.Sprintf("Posts %v", i),
+			url:  "https://random-post.com",
+		}
+	}
+
+	postsList := list.New(mockPosts, list.NewDefaultDelegate(), 0, 0)
+	postsList.Title = "Posts"
+	postsList.Styles.Title = c.styles.title
+	postsList.SetShowHelp(false)
+
+	return postsModel{
+		common: c,
+		list:   postsList,
+	}
 }
 
 func (m *postsModel) setSize(w, h int) {

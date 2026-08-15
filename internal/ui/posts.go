@@ -35,8 +35,9 @@ func initialPostsModel(c *commonModel) postsModel {
 }
 
 func (m *postsModel) setSize(w, h int) {
-	x, y := m.common.styles.app.GetFrameSize()
+	x, y := m.common.styles.list.GetFrameSize()
 	m.list.SetSize((w-x)/2, h-y)
+	m.common.styles.list = m.common.styles.list.Width((w - x) / 2)
 }
 
 func (m postsModel) Update(msg tea.Msg) (postsModel, tea.Cmd) {
@@ -67,7 +68,7 @@ func (m postsModel) Update(msg tea.Msg) (postsModel, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m postsModel) View() string {
-	v := m.common.styles.app.Render(m.list.View())
+func (m postsModel) View() tea.View {
+	v := tea.NewView(m.common.styles.list.Render(m.list.View()))
 	return v
 }

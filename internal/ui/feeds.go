@@ -44,8 +44,9 @@ type feedsModel struct {
 }
 
 func (m *feedsModel) setSize(w, h int) {
-	x, y := m.common.styles.app.GetFrameSize()
+	x, y := m.common.styles.list.GetFrameSize()
 	m.list.SetSize((w-x)/2, h-y)
+	m.common.styles.list = m.common.styles.list.Width((w) / 2)
 }
 
 func (m feedsModel) Init() tea.Cmd {
@@ -82,8 +83,6 @@ func (m feedsModel) Update(msg tea.Msg) (feedsModel, tea.Cmd) {
 }
 
 func (m feedsModel) View() tea.View {
-	v := tea.NewView(
-		m.common.styles.app.Render(m.list.View()),
-	)
+	v := tea.NewView(m.common.styles.list.Render(m.list.View()))
 	return v
 }

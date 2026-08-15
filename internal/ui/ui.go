@@ -118,8 +118,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() tea.View {
 	feedsContent := m.feeds.View().Content
-	postsContent := m.posts.View()
-	v := tea.NewView(lipgloss.JoinHorizontal(lipgloss.Top, feedsContent, postsContent))
+	postsContent := m.posts.View().Content
+	v := tea.NewView(m.common.styles.app.Render(lipgloss.JoinHorizontal(lipgloss.Top, feedsContent, postsContent)))
 	v.AltScreen = true
 	return v
 }

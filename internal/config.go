@@ -1,9 +1,9 @@
 package internal
 
-import "github.com/su1uv/atom1c/internal/db"
+import "github.com/su1uv/atom1c/internal/database"
 
 type State struct {
-	Db  *db.Queries
+	Db  *database.Queries
 	Cfg *Config
 }
 

@@ -1,11 +1,11 @@
 -- +goose Up
 CREATE TABLE feeds (
-    id INT PRIMARY KEY AUTOINCREMENT,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     name TEXT NOT NULL,
     url TEXT UNIQUE NOT NULL,
-    last_fetched_at TIMESTAMP
+    last_fetched_at TEXT
 ) STRICT;
 
 -- +goose Down

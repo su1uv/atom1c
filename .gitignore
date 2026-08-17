@@ -1,1 +1,4 @@
 .env
+
+atomic.db
+*.db

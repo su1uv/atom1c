@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/su1uv/atom1c/internal"
-	"github.com/su1uv/atom1c/internal/db"
+	"github.com/su1uv/atom1c/internal/database"
 )
 
 type AddFeedParams struct {
@@ -15,7 +15,7 @@ type AddFeedParams struct {
 }
 
 func HandleAddFeed(s *internal.State, params AddFeedParams) error {
-	feed, err := s.Db.CreateFeed(context.Background(), db.CreateFeedParams{
+	feed, err := s.Db.CreateFeed(context.Background(), database.CreateFeedParams{
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 		Name:      params.Name,
@@ -29,10 +29,10 @@ func HandleAddFeed(s *internal.State, params AddFeedParams) error {
 	return nil
 }
 
-func HandleGetFeeds(s *internal.State) ([]db.Feed, error) {
+func HandleGetFeeds(s *internal.State) ([]database.Feed, error) {
 	feeds, err := s.Db.GetFeeds(context.Background())
 	if err != nil {
-		return []db.Feed{}, err
+		return []database.Feed{}, err
 	}
 
 	return feeds, nil

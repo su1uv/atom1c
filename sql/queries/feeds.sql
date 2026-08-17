@@ -1,30 +1,30 @@
 -- name: GetFeeds :many
-select
+SELECT
     id,
     created_at,
     updated_at,
     name,
     url,
     last_fetched_at
-from feeds
-order by created_at
-limit 20;
+FROM feeds
+ORDER BY created_at
+LIMIT 20;
 
 -- name: CreateFeed :one
-insert into feeds (
-    id, created_at, updated_at, name, url
-) values (
-    $1, $2, $3, $4, $5
-) returning *;
+INSERT INTO feeds (
+    created_at, updated_at, name, url
+) VALUES (
+    ?, ?, ?, ?
+) RETURNING *;
 
 -- name: MarkFeedAsFetched :exec
-update feeds
-set last_fetched_at = $1, updated_at = $2
-where id = $3;
+UPDATE feeds
+SET last_fetched_at = ?, updated_at = ?
+WHERE id = ?;
 
 -- name: GetNextFeedToFetch :one
-select
+SELECT
     id, created_at, updated_at, name, url, last_fetched_at
-from feeds
-order by last_fetched_at asc nulls first
-limit 1;
+FROM feeds
+ORDER BY last_fetched_at ASC
+LIMIT 1;

@@ -9,20 +9,17 @@ import (
 	"context"
 	"database/sql"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 const createFeed = `-- name: CreateFeed :one
-insert into feeds (
-    id, created_at, updated_at, name, url
-) values (
-    $1, $2, $3, $4, $5
-) returning id, created_at, updated_at, name, url, last_fetched_at
+INSERT INTO feeds (
+    created_at, updated_at, name, url
+) VALUES (
+    ?, ?, ?, ?
+) RETURNING id, created_at, updated_at, name, url, last_fetched_at
 `
 
 type CreateFeedParams struct {
-	ID        uuid.UUID
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	Name      string
@@ -31,7 +28,6 @@ type CreateFeedParams struct {
 
 func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (Feed, error) {
 	row := q.db.QueryRowContext(ctx, createFeed,
-		arg.ID,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 		arg.Name,
@@ -50,16 +46,16 @@ func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (Feed, e
 }
 
 const getFeeds = `-- name: GetFeeds :many
-select
+SELECT
     id,
     created_at,
     updated_at,
     name,
     url,
     last_fetched_at
-from feeds
-order by created_at
-limit 20
+FROM feeds
+ORDER BY created_at
+LIMIT 20
 `
 
 func (q *Queries) GetFeeds(ctx context.Context) ([]Feed, error) {
@@ -93,11 +89,11 @@ func (q *Queries) GetFeeds(ctx context.Context) ([]Feed, error) {
 }
 
 const getNextFeedToFetch = `-- name: GetNextFeedToFetch :one
-select
+SELECT
     id, created_at, updated_at, name, url, last_fetched_at
-from feeds
-order by last_fetched_at asc nulls first
-limit 1
+FROM feeds
+ORDER BY last_fetched_at ASC
+LIMIT 1
 `
 
 func (q *Queries) GetNextFeedToFetch(ctx context.Context) (Feed, error) {
@@ -115,15 +111,15 @@ func (q *Queries) GetNextFeedToFetch(ctx context.Context) (Feed, error) {
 }
 
 const markFeedAsFetched = `-- name: MarkFeedAsFetched :exec
-update feeds
-set last_fetched_at = $1, updated_at = $2
-where id = $3
+UPDATE feeds
+SET last_fetched_at = ?, updated_at = ?
+WHERE id = ?
 `
 
 type MarkFeedAsFetchedParams struct {
 	LastFetchedAt sql.NullTime
 	UpdatedAt     time.Time
-	ID            uuid.UUID
+	ID            int64
 }
 
 func (q *Queries) MarkFeedAsFetched(ctx context.Context, arg MarkFeedAsFetchedParams) error {

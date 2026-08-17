@@ -7,12 +7,10 @@ package db
 import (
 	"database/sql"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type Feed struct {
-	ID            uuid.UUID
+	ID            int64
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 	Name          string
@@ -21,7 +19,7 @@ type Feed struct {
 }
 
 type User struct {
-	ID        uuid.UUID
+	ID        int64
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	Username  string

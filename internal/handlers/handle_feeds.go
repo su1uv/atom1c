@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/su1uv/atom1c/internal"
 	"github.com/su1uv/atom1c/internal/db"
 )
@@ -17,7 +16,6 @@ type AddFeedParams struct {
 
 func HandleAddFeed(s *internal.State, params AddFeedParams) error {
 	feed, err := s.Db.CreateFeed(context.Background(), db.CreateFeedParams{
-		ID:        uuid.New(),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 		Name:      params.Name,

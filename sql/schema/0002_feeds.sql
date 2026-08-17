@@ -1,13 +1,12 @@
 -- +goose Up
-create table if not exists feeds (
-    id uuid primary key,
-    created_at timestamptz not null,
-    updated_at timestamptz not null,
-    name text not null,
-    url text not null,
-    last_fetched_at timestamptz,
-    unique(url)
-);
+CREATE TABLE feeds (
+    id INT PRIMARY KEY AUTOINCREMENT,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    name TEXT NOT NULL,
+    url TEXT UNIQUE NOT NULL,
+    last_fetched_at TIMESTAMP
+) STRICT;
 
 -- +goose Down
-drop table if exists feeds;
+DROP TABLE feeds;

@@ -1,11 +1,10 @@
 -- +goose Up
-create table users (
-    id uuid primary key,
-    created_at timestamptz not null,
-    updated_at timestamptz not null,
-    username text not null,
-    unique(username)
-);
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    username TEXT UNIQUE NOT NULL
+) STRICT;
 
 -- +goose Down
-drop table users;
+DROP TABLE users;

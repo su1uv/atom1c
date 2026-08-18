@@ -12,10 +12,15 @@ type listKeyMap struct {
 	selectItem       key.Binding
 	deselectItem     key.Binding
 	quit             key.Binding
+	addFeed          key.Binding
 }
 
 func newListKeyMap() *listKeyMap {
 	return &listKeyMap{
+		addFeed: key.NewBinding(
+			key.WithKeys("a"),
+			key.WithHelp("a", "add feed"),
+		),
 		next: key.NewBinding(
 			key.WithKeys("j", "down"),
 			key.WithHelp("j", "next"),
@@ -51,6 +56,19 @@ func newListKeyMap() *listKeyMap {
 		quit: key.NewBinding(
 			key.WithKeys("q", "ctrl+c"),
 			key.WithHelp("q", "quit"),
+		),
+	}
+}
+
+type modalKeyMap struct {
+	close key.Binding
+}
+
+func newModalKeyMap() *modalKeyMap {
+	return &modalKeyMap{
+		close: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "close"),
 		),
 	}
 }

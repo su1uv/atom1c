@@ -65,10 +65,12 @@ type commonModel struct {
 }
 
 type model struct {
-	common *commonModel
-	feeds  feedsModel
-	posts  postsModel
-	help   help.Model
+	common        *commonModel
+	feeds         feedsModel
+	posts         postsModel
+	help          help.Model
+	addFeedModal  addFeedModel
+	isOpenAddFeed bool
 }
 
 func (m model) Init() tea.Cmd {
@@ -86,14 +88,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.posts.setSize(msg.Width, msg.Height)
 	}
 
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
-		switch {
-		case key.Matches(msg, m.common.keys.quit):
-			return m, tea.Quit
-		}
-	}
-
 	// propagate to feeds model
 	feedsModel, feedsCmd := m.feeds.Update(msg)
 	m.feeds = feedsModel
@@ -108,6 +102,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() tea.View {
 	help := m.help.ShortHelpView([]key.Binding{
+		m.common.keys.addFeed,
 		m.common.keys.next,
 		m.common.keys.prev,
 		m.common.keys.nextPage,

@@ -26,12 +26,14 @@ func newModel(s *internal.State) tea.Model {
 
 	feeds := initialFeedsModel(&common)
 	posts := initialPostsModel(&common)
+	addFeed := initialAddFeedModel(&common)
 
 	m := model{
-		common: &common,
-		feeds:  feeds,
-		posts:  posts,
-		help:   help.New(),
+		common:  &common,
+		feeds:   feeds,
+		posts:   posts,
+		help:    help.New(),
+		addFeed: addFeed,
 	}
 
 	return m
@@ -55,22 +57,22 @@ func (f item) Description() string { return f.url }
 func (f item) FilterValue() string { return f.name }
 
 type commonModel struct {
-	state    *internal.State
-	isDarkBG bool
-	styles   Styles
-	keys     *listKeyMap
-	width    int
-	height   int
-	focus    focusState
+	state       *internal.State
+	isDarkBG    bool
+	styles      Styles
+	keys        *listKeyMap
+	width       int
+	height      int
+	focus       focusState
+	isOpenModal bool
 }
 
 type model struct {
-	common        *commonModel
-	feeds         feedsModel
-	posts         postsModel
-	help          help.Model
-	addFeedModal  addFeedModel
-	isOpenAddFeed bool
+	common  *commonModel
+	feeds   feedsModel
+	posts   postsModel
+	help    help.Model
+	addFeed addFeedModel
 }
 
 func (m model) Init() tea.Cmd {
@@ -86,6 +88,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.common.width = msg.Width
 		m.feeds.setSize(msg.Width, msg.Height)
 		m.posts.setSize(msg.Width, msg.Height)
+
+	case tea.KeyPressMsg:
+		switch {
+		case key.Matches(msg, m.common.keys.addFeed):
+			m.common.isOpenModal = true
+		}
+	}
+
+	if m.common.isOpenModal {
+		addFeedModel, addFeedCmd := m.addFeed.Update(msg)
+		return addFeedModel, addFeedCmd
 	}
 
 	// propagate to feeds model
@@ -116,7 +129,13 @@ func (m model) View() tea.View {
 
 	feedsContent := m.feeds.View().Content
 	postsContent := m.posts.View().Content
-	v := tea.NewView(m.common.styles.app.Render(lipgloss.JoinHorizontal(lipgloss.Top, feedsContent, postsContent) + "\n\n" + help))
+	content := m.common.styles.app.Render(lipgloss.JoinHorizontal(lipgloss.Top, feedsContent, postsContent) + "\n\n" + help)
+
+	if m.common.isOpenModal {
+		content = overlayModal(content, m.addFeed.View().Content, m.common.width, m.common.height)
+	}
+
+	v := tea.NewView(content)
 	v.AltScreen = true
 	return v
 }

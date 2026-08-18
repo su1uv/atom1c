@@ -41,10 +41,6 @@ func (m *feedsModel) setSize(w, h int) {
 	m.common.styles.list = m.common.styles.list.Width((w) / 2)
 }
 
-func (m feedsModel) Init() tea.Cmd {
-	return nil
-}
-
 func (m feedsModel) Update(msg tea.Msg) (feedsModel, tea.Cmd) {
 	var cmds []tea.Cmd
 

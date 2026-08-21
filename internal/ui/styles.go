@@ -10,7 +10,6 @@ type Styles struct {
 }
 
 func newStyles(isDarkBG bool) Styles {
-
 	return Styles{
 		app: lipgloss.NewStyle().
 			Margin(0, 1, 1, 1),
@@ -20,5 +19,8 @@ func newStyles(isDarkBG bool) Styles {
 		title: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFFDF5")).
 			Background(lipgloss.Color("#372248")),
+		modal: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#9C7CA5")),
 	}
 }

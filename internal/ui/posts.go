@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"fmt"
-
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
@@ -10,13 +8,9 @@ import (
 
 func initialPostsModel(c *commonModel) postsModel {
 	// TODO: remove mocks get actual data
-	const numMocks = 25
-	mockPosts := make([]list.Item, numMocks)
-	for i := range numMocks {
-		mockPosts[i] = item{
-			name: fmt.Sprintf("Posts %v", i),
-			url:  "https://random-post.com",
-		}
+	mockPosts := make([]list.Item, len(postsMock))
+	for i, post := range postsMock {
+		mockPosts[i] = post
 	}
 
 	postsList := list.New(mockPosts, list.NewDefaultDelegate(), 0, 0)

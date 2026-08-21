@@ -98,7 +98,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if m.common.isOpenModal {
 		addFeedModel, addFeedCmd := m.addFeed.Update(msg)
-		return addFeedModel, addFeedCmd
+		m.addFeed = addFeedModel
+		return m, addFeedCmd
 	}
 
 	// propagate to feeds model

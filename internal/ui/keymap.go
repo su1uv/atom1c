@@ -61,11 +61,21 @@ func newListKeyMap() *listKeyMap {
 }
 
 type modalKeyMap struct {
-	close key.Binding
+	close            key.Binding
+	changeCursorMode key.Binding
+	nextInput        key.Binding
 }
 
 func newModalKeyMap() *modalKeyMap {
 	return &modalKeyMap{
+		changeCursorMode: key.NewBinding(
+			key.WithKeys("ctrl+r"),
+			key.WithHelp("ctrl+r", "change cursor mode"),
+		),
+		nextInput: key.NewBinding(
+			key.WithKeys("tab", "shift+tab", "enter", "up", "down"),
+			key.WithHelp("tab/shift+tab", "next/prev"),
+		),
 		close: key.NewBinding(
 			key.WithKeys("esc"),
 			key.WithHelp("esc", "close"),

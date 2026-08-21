@@ -1,4 +1,8 @@
 .env
 
+*.tape
+
+
+atom1c
 atomic.db
 *.db

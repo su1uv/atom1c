@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"fmt"
-
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
@@ -10,13 +8,9 @@ import (
 
 func initialFeedsModel(c *commonModel) feedsModel {
 	// TODO: remove mocks, get actual data
-	const numMocks = 25
-	mockFeeds := make([]list.Item, numMocks)
-	for i := range numMocks {
-		mockFeeds[i] = item{
-			name: fmt.Sprintf("Feed %v", i),
-			url:  "https://random.com",
-		}
+	mockFeeds := make([]list.Item, len(feedsMock))
+	for i, feed := range feedsMock {
+		mockFeeds[i] = feed
 	}
 
 	feedList := list.New(mockFeeds, list.NewDefaultDelegate(), 0, 0)

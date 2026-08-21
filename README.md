@@ -12,7 +12,7 @@ A self-hosted Atom feed aggregator and terminal reader accessible over SSH.
 
 It's a learning project. I'm using it to get properly comfortable with the Charm TUI stack (Bubble Tea, Bubbles, Lipgloss).
 
-## Quick start
+## Quick Start
 
 Requires Go 1.26+.
 

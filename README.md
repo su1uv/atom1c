@@ -1,4 +1,4 @@
-# atom1c
+# Atom1c
 
 > On Development
 
@@ -8,11 +8,11 @@ A self-hosted Atom feed aggregator and terminal reader accessible over SSH.
   <img src="demo.gif" alt="Demo">
 </p>
 
-## motivation
+## Motivation
 
 It's a learning project. I'm using it to get properly comfortable with the Charm TUI stack (Bubble Tea, Bubbles, Lipgloss).
 
-## quick start
+## Quick start
 
 Requires Go 1.26+.
 
@@ -27,7 +27,7 @@ Database migrations run automatically at startup, so there's nothing else to set
 
 Heads up: the SSH part isn't implemented yet. Right now atom1c runs as a plain local TUI.
 
-## usage
+## Usage
 
 Main view:
 
@@ -51,7 +51,7 @@ Add feed modal:
 | `ctrl+r` | change cursor style |
 | `esc` | close |
 
-## contributing
+## Contributing
 
 I'm not accepting pull requests for now.
 

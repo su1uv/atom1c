@@ -6,21 +6,20 @@ package database
 
 import (
 	"database/sql"
-	"time"
 )
 
 type Feed struct {
 	ID            int64
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	CreatedAt     string
+	UpdatedAt     string
 	Name          string
 	Url           string
-	LastFetchedAt sql.NullTime
+	LastFetchedAt sql.NullString
 }
 
 type User struct {
 	ID        int64
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt string
+	UpdatedAt string
 	Username  string
 }

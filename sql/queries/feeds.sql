@@ -12,14 +12,15 @@ LIMIT 20;
 
 -- name: CreateFeed :one
 INSERT INTO feeds (
-    created_at, updated_at, name, url
+    name, url
 ) VALUES (
-    ?, ?, ?, ?
+    ?, ?
 ) RETURNING *;
 
 -- name: MarkFeedAsFetched :exec
 UPDATE feeds
-SET last_fetched_at = ?, updated_at = ?
+SET last_fetched_at = CURRENT_TIMESTAMP,
+    updated_at = CURRENT_TIMESTAMP
 WHERE id = ?;
 
 -- name: GetNextFeedToFetch :one

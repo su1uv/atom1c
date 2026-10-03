@@ -6,14 +6,15 @@ Roadmap: [Step 1](roadmap.md#1-reconcile-database-timestamps).
 ## Objective
 
 Make SQLite timestamp storage, sqlc-generated types, and Go callers consistent.
-Verify fresh and existing databases, including timestamp scanning and ordering.
+Verify timestamp scanning and ordering against a fresh database using the current
+development migrations. Preserve compatibility is not required before deployment.
 
 ## Original mismatch (resolved)
 
 - Users and feeds declare timestamps as SQLite TEXT, while the original generated
   models and callers used time.Time/sql.NullTime.
-- The existing database contained Go-formatted local timestamps with offsets,
-  fractional seconds, and monotonic suffixes.
+- This schema is still in development and has not been deployed. Existing local
+  development rows do not require a compatibility/backfill migration.
 
 ## Timestamp convention
 
@@ -26,11 +27,11 @@ Verify fresh and existing databases, including timestamp scanning and ordering.
 
 ## Implementation checklist
 
-### A. Inspect compatibility
+### A. Confirm development scope
 
 - [x] Check the installed sqlc version (v1.31.1).
 - [x] Inspect existing table definitions and timestamp formats read-only.
-- [x] Identify SQLite-default and Go-formatted values in the existing database.
+- [x] Confirm migrations are undeployed and development data needs no backfill.
 - [x] Confirm the generated-type/schema mismatch and choose a compatible format.
 
 ### B. Align SQL timestamp handling
@@ -39,11 +40,9 @@ Verify fresh and existing databases, including timestamp scanning and ordering.
 - [x] Assign fetch/update timestamps consistently in the fetch-update query.
 - [x] Preserve NULL fetch timestamps.
 - [x] Ensure chronological ordering works under the canonical representation.
-- [x] Add a new migration with verified conversion behavior for legacy values;
-      previously applied migrations were not rewritten.
-- [x] Preserve identifiers and all non-timestamp data.
-- [x] Fail migration on unrecognized timestamp formats instead of silently
-      retaining mixed representations.
+- [x] Keep the existing TEXT/CURRENT_TIMESTAMP schema defaults; they already
+      provide the agreed UTC second-precision representation.
+- [x] Avoid a legacy-data migration because the schema has not been deployed.
 
 ### C. Regenerate and update callers
 
@@ -54,7 +53,7 @@ Verify fresh and existing databases, including timestamp scanning and ordering.
 
 ### D. Add database integration tests
 
-Use temporary SQLite databases and production migrations. Verify:
+Use temporary SQLite databases and the current development migrations. Verify:
 
 - [x] Feed creation returns readable canonical timestamps.
 - [x] Feed listing scans timestamps successfully.
@@ -63,9 +62,7 @@ Use temporary SQLite databases and production migrations. Verify:
 - [x] Fetch selection prioritizes never-fetched feeds, then oldest fetched feeds.
 - [x] User lookup reads timestamps correctly.
 - [x] Closing and reopening the database preserves values.
-- [x] Compatibility migration handles representative legacy values without
-      losing records, including relevant timezone and fractional-second cases.
-- [x] Unknown formats cause a migration failure and rollback without data loss.
+- [x] The fresh schema creates feeds and users with canonical timestamps.
 
 Avoid relying on sleeps or assuming second-level timestamps are unique.
 
@@ -83,14 +80,14 @@ Avoid relying on sleeps or assuming second-level timestamps are unique.
 
 - [x] Remove the resolved mismatch from MEMORY.md, keeping it within 60 lines.
 - [x] Record remaining unrelated issues in MEMORY.md.
-- [x] Update AGENTS.md to document migration 0003 and remove obsolete mismatch guidance.
+- [x] Update AGENTS.md to clarify when to edit existing migrations versus add a new one.
 
 ## Acceptance criteria
 
 - [x] Regeneration produces compiling code without manual corrections.
 - [x] Feed and user timestamp reads work against SQLite.
 - [x] Nullability and chronological fetch ordering behave correctly.
-- [x] Existing records remain usable after migration.
+- [x] Fresh databases support feed/user timestamp operations.
 - [x] All required checks pass.
 
 ## Commit and publication

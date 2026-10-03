@@ -14,7 +14,8 @@
 ### 1. Reconcile database timestamps
 - Choose a consistent SQLite/Go timestamp representation.
 - Align migrations, sqlc configuration, generated code, and callers.
-- Check existing-database compatibility before changing migrations.
+- Migrations are not deployed yet; update existing migration sources directly
+  when needed instead of adding compatibility migrations for development data.
 - Verify feed creation, retrieval, and fetch timestamps using a temporary database.
 - **Done:** sqlc regeneration compiles and timestamp round trips work.
 

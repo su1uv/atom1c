@@ -15,7 +15,7 @@ import (
 const timestampLayout = "2006-01-02 15:04:05"
 
 func TestTimestampRoundTrips(t *testing.T) {
-	db, queries, dbPath, _ := openTimestampTestDB(t, 0)
+	db, queries, dbPath := openTimestampTestDB(t)
 	ctx := context.Background()
 
 	neverFetched, err := queries.CreateFeed(ctx, CreateFeedParams{
@@ -134,85 +134,7 @@ func TestTimestampRoundTrips(t *testing.T) {
 	}
 }
 
-func TestTimestampMigrationNormalizesGoTimeStrings(t *testing.T) {
-	db, queries, _, migrationDir := openTimestampTestDB(t, 2)
-	ctx := context.Background()
-
-	_, err := db.ExecContext(ctx, `INSERT INTO feeds (created_at, updated_at, name, url, last_fetched_at)
-		VALUES (?, ?, ?, ?, ?)`,
-		"2025-01-02 03:04:05.987654321 -0600 CST m=+12.345",
-		"2025-01-02 04:05:06 +0000 UTC",
-		"Legacy feed",
-		"https://example.test/legacy.atom",
-		"2025-01-02 05:06:07.123456789 +0530 IST m=+0.1",
-	)
-	if err != nil {
-		t.Fatalf("insert legacy feed: %v", err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO users (created_at, updated_at, username)
-		VALUES (?, ?, ?)`,
-		"2025-01-02 03:04:05.987654321 -0600 CST m=+12.345",
-		"2025-01-02 04:05:06 +0000 UTC",
-		"legacy-owner",
-	); err != nil {
-		t.Fatalf("insert legacy user: %v", err)
-	}
-
-	if err := goose.Up(db, migrationDir); err != nil {
-		t.Fatalf("apply timestamp migration: %v", err)
-	}
-
-	feed, err := queries.GetFeeds(ctx)
-	if err != nil {
-		t.Fatalf("read migrated feed: %v", err)
-	}
-	if len(feed) != 1 {
-		t.Fatalf("migrated feeds = %d, want 1", len(feed))
-	}
-	if feed[0].Name != "Legacy feed" || feed[0].Url != "https://example.test/legacy.atom" {
-		t.Fatalf("feed data changed during migration: %+v", feed[0])
-	}
-	assertTimestampEqual(t, feed[0].CreatedAt, "2025-01-02 09:04:05")
-	assertTimestampEqual(t, feed[0].UpdatedAt, "2025-01-02 04:05:06")
-	if !feed[0].LastFetchedAt.Valid {
-		t.Fatal("legacy non-null fetch timestamp became NULL")
-	}
-	assertTimestampEqual(t, feed[0].LastFetchedAt.String, "2025-01-01 23:36:07")
-
-	user, err := queries.GetUserByUsername(ctx, "legacy-owner")
-	if err != nil {
-		t.Fatalf("read migrated user: %v", err)
-	}
-	assertTimestampEqual(t, user.CreatedAt, "2025-01-02 09:04:05")
-	assertTimestampEqual(t, user.UpdatedAt, "2025-01-02 04:05:06")
-}
-
-func TestTimestampMigrationRejectsUnknownFormat(t *testing.T) {
-	db, _, _, migrationDir := openTimestampTestDB(t, 2)
-	if _, err := db.Exec(`INSERT INTO feeds (created_at, updated_at, name, url)
-		VALUES (?, ?, ?, ?)`, "not a timestamp", "not a timestamp", "Unknown", "https://example.test/unknown.atom"); err != nil {
-		t.Fatalf("insert unknown-format fixture: %v", err)
-	}
-	if err := goose.Up(db, migrationDir); err == nil {
-		t.Fatal("timestamp migration succeeded with an unknown format; want failure")
-	}
-	version, err := goose.GetDBVersion(db)
-	if err != nil {
-		t.Fatalf("read migration version: %v", err)
-	}
-	if version != 2 {
-		t.Fatalf("database version = %d after failed migration, want 2", version)
-	}
-	var timestamp string
-	if err := db.QueryRow(`SELECT created_at FROM feeds WHERE name = 'Unknown'`).Scan(&timestamp); err != nil {
-		t.Fatalf("read fixture after rollback: %v", err)
-	}
-	if timestamp != "not a timestamp" {
-		t.Fatalf("timestamp after failed migration = %q, want original value", timestamp)
-	}
-}
-
-func openTimestampTestDB(t *testing.T, upTo int64) (*sql.DB, *Queries, string, string) {
+func openTimestampTestDB(t *testing.T) (*sql.DB, *Queries, string) {
 	t.Helper()
 	_, sourceFile, _, ok := runtime.Caller(0)
 	if !ok {
@@ -229,15 +151,10 @@ func openTimestampTestDB(t *testing.T, upTo int64) (*sql.DB, *Queries, string, s
 	if err := goose.SetDialect("sqlite"); err != nil {
 		t.Fatalf("set sqlite migration dialect: %v", err)
 	}
-	if upTo == 0 {
-		err = goose.Up(db, migrationDir)
-	} else {
-		err = goose.UpTo(db, migrationDir, upTo)
-	}
-	if err != nil {
+	if err := goose.Up(db, migrationDir); err != nil {
 		t.Fatalf("apply test migrations: %v", err)
 	}
-	return db, New(db), dbPath, migrationDir
+	return db, New(db), dbPath
 }
 
 func assertCanonicalTimestamp(t *testing.T, value string) {
@@ -248,13 +165,5 @@ func assertCanonicalTimestamp(t *testing.T, value string) {
 	}
 	if got := parsed.Format(timestampLayout); got != value {
 		t.Fatalf("timestamp %q does not round-trip as canonical UTC (got %q)", value, got)
-	}
-}
-
-func assertTimestampEqual(t *testing.T, got, want string) {
-	t.Helper()
-	assertCanonicalTimestamp(t, got)
-	if got != want {
-		t.Fatalf("timestamp = %q, want %q", got, want)
 	}
 }

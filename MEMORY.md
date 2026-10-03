@@ -24,8 +24,11 @@ Current problems; update as work resolves them. This is a snapshot, not the road
 ## Verification baseline
 - On 2026-10-02, `go test ./... -timeout 30s`, `go vet ./...`, and
   `go test ./... -run '^$'` passed; repeated `sqlc generate` was stable.
-- Database integration tests now cover timestamp round trips, migration from
-  legacy Go-formatted values, ordering, nullability, and persistence.
+- The timestamp schema is still development-only and has not been deployed.
+  Existing migrations already use TEXT with UTC second-precision CURRENT_TIMESTAMP
+  defaults; no legacy-data backfill migration is needed.
+- Database integration tests cover fresh-schema timestamp round trips, ordering,
+  nullability, and persistence.
 - The feed parser test makes a live HTTP request and checks errors, not parsed content.
 - UI behavior and end-to-end workflows remain untested.
 - Passing checks do not establish functional completeness.

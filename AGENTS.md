@@ -38,7 +38,7 @@
 - Use Charm v2 APIs (`charm.land/...`, `tea.KeyPressMsg`, `View() tea.View`).
 - SQL sources live in `sql/schema` and `sql/queries`; regenerate with `sqlc generate`.
   Do not hand-edit generated `internal/database` files. Review generated diffs
-  before regeneration. Migration 0003 normalizes legacy Go timestamps to UTC
-  second precision and fails on unrecognized timestamp formats; do not rewrite
-  previously applied migrations.
+  before regeneration. Before the first deployment, update existing migrations
+  directly when needed. After deployment, preserve applied migrations and add a
+  new migration for compatibility changes.
 - Migrations are embedded at build time; rebuild/re-run after changing SQL.

@@ -2,16 +2,13 @@ package atom
 
 import (
 	"context"
-	"database/sql"
 	"encoding/xml"
 	"fmt"
 	"html"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/su1uv/atom1c/internal"
-	"github.com/su1uv/atom1c/internal/database"
 )
 
 type AtomFeed struct {
@@ -39,11 +36,7 @@ func ScrapeFeeds(s *internal.State) error {
 		return err
 	}
 
-	if err = s.Db.MarkFeedAsFetched(context.Background(), database.MarkFeedAsFetchedParams{
-		ID:            nextFeed.ID,
-		UpdatedAt:     time.Now(),
-		LastFetchedAt: sql.NullTime{Time: time.Now(), Valid: true},
-	}); err != nil {
+	if err = s.Db.MarkFeedAsFetched(context.Background(), nextFeed.ID); err != nil {
 		return err
 	}
 

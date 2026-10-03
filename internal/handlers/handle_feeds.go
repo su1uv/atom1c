@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/su1uv/atom1c/internal"
 	"github.com/su1uv/atom1c/internal/database"
@@ -16,10 +15,8 @@ type AddFeedParams struct {
 
 func HandleAddFeed(s *internal.State, params AddFeedParams) error {
 	feed, err := s.Db.CreateFeed(context.Background(), database.CreateFeedParams{
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Name:      params.Name,
-		Url:       params.URL,
+		Name: params.Name,
+		Url:  params.URL,
 	})
 	if err != nil {
 		return err

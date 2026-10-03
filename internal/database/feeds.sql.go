@@ -7,32 +7,23 @@ package database
 
 import (
 	"context"
-	"database/sql"
-	"time"
 )
 
 const createFeed = `-- name: CreateFeed :one
 INSERT INTO feeds (
-    created_at, updated_at, name, url
+    name, url
 ) VALUES (
-    ?, ?, ?, ?
+    ?, ?
 ) RETURNING id, created_at, updated_at, name, url, last_fetched_at
 `
 
 type CreateFeedParams struct {
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Name      string
-	Url       string
+	Name string
+	Url  string
 }
 
 func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (Feed, error) {
-	row := q.db.QueryRowContext(ctx, createFeed,
-		arg.CreatedAt,
-		arg.UpdatedAt,
-		arg.Name,
-		arg.Url,
-	)
+	row := q.db.QueryRowContext(ctx, createFeed, arg.Name, arg.Url)
 	var i Feed
 	err := row.Scan(
 		&i.ID,
@@ -112,17 +103,12 @@ func (q *Queries) GetNextFeedToFetch(ctx context.Context) (Feed, error) {
 
 const markFeedAsFetched = `-- name: MarkFeedAsFetched :exec
 UPDATE feeds
-SET last_fetched_at = ?, updated_at = ?
+SET last_fetched_at = CURRENT_TIMESTAMP,
+    updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 `
 
-type MarkFeedAsFetchedParams struct {
-	LastFetchedAt sql.NullTime
-	UpdatedAt     time.Time
-	ID            int64
-}
-
-func (q *Queries) MarkFeedAsFetched(ctx context.Context, arg MarkFeedAsFetchedParams) error {
-	_, err := q.db.ExecContext(ctx, markFeedAsFetched, arg.LastFetchedAt, arg.UpdatedAt, arg.ID)
+func (q *Queries) MarkFeedAsFetched(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, markFeedAsFetched, id)
 	return err
 }

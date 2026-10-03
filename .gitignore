@@ -2,6 +2,9 @@
 
 *.tape
 
+.agents
+
+
 
 atom1c
 atomic.db

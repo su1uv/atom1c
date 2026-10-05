@@ -33,7 +33,7 @@
   The TUI requires an interactive terminal.
 - Startup automatically applies embedded Goose migrations. Only `GOOSE_DBSTRING`
   configures the database; other Goose variables in `.env.example` are unused.
-- Tests: `go test ./... -timeout 30s` (currently includes a live HTTP request).
+- Tests: `go test ./... -timeout 30s`; Atom tests use fixtures and local HTTP servers.
 - Network-free compile check: `go test ./... -run '^$'`; static check: `go vet ./...`.
 
 ## Implementation guidance

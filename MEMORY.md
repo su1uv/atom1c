@@ -14,21 +14,19 @@ Current problems; update as work resolves them. This is a snapshot, not the road
 - User records exist, but no SSH identity/session integration is implemented.
 
 ## Existing defects and limitations
-- Atom links need href attribute parsing; plain string fields lose normal links.
-- Entry HTML-unescaping modifies range copies, so changes are discarded.
-- HTTP fetching has no client timeout or HTTP-status validation.
 - Add-feed inputs are not initially focused.
 - Global `a` handling can interrupt list filtering.
 - Pagination handling runs before pane focus checks and affects both lists.
 
 ## Verification baseline
-- On 2026-10-02, `go test ./... -timeout 30s`, `go vet ./...`, and
-  `go test ./... -run '^$'` passed; repeated `sqlc generate` was stable.
+- On 2026-10-05, `go test ./... -timeout 30s`, `go vet ./...`, and
+  `go test ./... -run '^$'` passed. Atom fetch tests use fixtures and local HTTP
+  servers, with no external network dependency.
+- Repeated `sqlc generate` was stable during the timestamp work.
 - The timestamp schema is still development-only and has not been deployed.
   Existing migrations already use TEXT with UTC second-precision CURRENT_TIMESTAMP
   defaults; no legacy-data backfill migration is needed.
 - Database integration tests cover fresh-schema timestamp round trips, ordering,
   nullability, and persistence.
-- The feed parser test makes a live HTTP request and checks errors, not parsed content.
 - UI behavior and end-to-end workflows remain untested.
 - Passing checks do not establish functional completeness.

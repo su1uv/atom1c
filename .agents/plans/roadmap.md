@@ -24,7 +24,9 @@
 - Add HTTP timeouts, status validation, and cancellation support.
 - Replace the live-network test with fixtures and a local HTTP test server.
 - Verify parsed titles, links, content, dates, and failure handling.
-- **Done:** representative Atom feeds parse correctly with deterministic tests.
+- **Done:** representative Atom feeds parse correctly with deterministic tests;
+  HTTP fetching has a 15-second timeout, status validation, and context
+  cancellation. See [implementation plan](02-atom-fetching.md).
 
 ### 3. Add RSS 2.0 support
 - Detect RSS 2.0 and normalize Atom/RSS into a shared feed/post representation.

@@ -232,6 +232,137 @@ func TestRefreshFeedPersistsRSSGUIDAndDateMetadata(t *testing.T) {
 	}
 }
 
+func TestRefreshFeedPersistsRSSIdentityValuesVerbatim(t *testing.T) {
+	ctx := context.Background()
+	db, queries := openRefreshTestDB(t)
+	body := `<rss version="2.0"><channel>` +
+		`<item><title>GUID with spaces</title><guid isPermaLink="false"> opaque-guid </guid></item>` +
+		`<item><title>GUID without spaces</title><guid isPermaLink="false">opaque-guid</guid></item>` +
+		`<item><title>Link with spaces</title><link> https://example.test/item </link></item>` +
+		`<item><title>Link without spaces</title><link>https://example.test/item</link></item>` +
+		`<item><title>GUID fallback with whitespace link</title><link>   </link><guid isPermaLink="true"> https://example.test/fallback </guid></item>` +
+		`</channel></rss>`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, body)
+	}))
+	defer server.Close()
+	storedFeed := createRefreshFeed(t, queries, server.URL)
+
+	if err := RefreshFeed(ctx, db, storedFeed); err != nil {
+		t.Fatalf("refresh RSS feed: %v", err)
+	}
+	posts, err := queries.GetPostsByFeed(ctx, storedFeed.ID)
+	if err != nil {
+		t.Fatalf("list RSS posts: %v", err)
+	}
+	if len(posts) != 5 {
+		t.Fatalf("RSS post count = %d, want 5 distinct source identities", len(posts))
+	}
+	byIdentity := postsByIdentity(posts)
+	for identity, sourceID := range map[string]string{
+		"id: opaque-guid ":                   " opaque-guid ",
+		"id:opaque-guid":                     "opaque-guid",
+		"link: https://example.test/item ":   "",
+		"link:https://example.test/item":     "",
+		"id: https://example.test/fallback ": " https://example.test/fallback ",
+	} {
+		post, ok := byIdentity[identity]
+		if !ok {
+			t.Errorf("missing exact identity key %q; got %#v", identity, byIdentity)
+			continue
+		}
+		if post.SourceID != sourceID {
+			t.Errorf("source ID for identity %q = %q, want %q", identity, post.SourceID, sourceID)
+		}
+	}
+	if got := byIdentity["id: https://example.test/fallback "].Link; got != " https://example.test/fallback " {
+		t.Errorf("GUID link fallback = %q, want exact GUID value", got)
+	}
+}
+
+func TestRefreshFeedClearsFieldsThatDisappear(t *testing.T) {
+	tests := []struct {
+		name           string
+		response       string
+		wantTitle      string
+		wantContent    string
+		wantKind       ContentKind
+		wantPubRaw     string
+		wantUpdated    string
+		wantPubDate    bool
+		wantUpdateDate bool
+	}{
+		{
+			name:     "fields and dates absent",
+			response: atomDocument(atomEntry("stable-id", "", "", "")),
+		},
+		{
+			name:        "invalid dates replace previous normalized values",
+			response:    atomDocument(atomEntry("stable-id", "Updated title", "", `<content>Updated content</content><published>not a date</published><updated>also invalid</updated>`)),
+			wantTitle:   "Updated title",
+			wantContent: "Updated content",
+			wantKind:    ContentText,
+			wantPubRaw:  "not a date",
+			wantUpdated: "also invalid",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			db, queries := openRefreshTestDB(t)
+			var mu sync.RWMutex
+			body := `<rss version="2.0"><channel><item><title>Previous title</title><link>https://example.test/previous</link><guid isPermaLink="false">stable-id</guid><description>Previous content</description><pubDate>Thu, 01 Oct 2026 12:00:00 +0000</pubDate></item></channel></rss>`
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				mu.RLock()
+				defer mu.RUnlock()
+				_, _ = fmt.Fprint(w, body)
+			}))
+			defer server.Close()
+			storedFeed := createRefreshFeed(t, queries, server.URL)
+			if err := RefreshFeed(ctx, db, storedFeed); err != nil {
+				t.Fatalf("initial RSS refresh: %v", err)
+			}
+			initial, err := queries.GetPostsByFeed(ctx, storedFeed.ID)
+			if err != nil {
+				t.Fatalf("list initial posts: %v", err)
+			}
+			if len(initial) != 1 {
+				t.Fatalf("initial post count = %d, want 1", len(initial))
+			}
+			if !initial[0].GuidIsPermalink.Valid || initial[0].GuidIsPermalink.Int64 != 0 || !initial[0].PublishedAt.Valid {
+				t.Fatalf("initial GUID/date metadata = (%v, %v), want false GUID and normalized publication date", initial[0].GuidIsPermalink, initial[0].PublishedAt)
+			}
+
+			mu.Lock()
+			body = tt.response
+			mu.Unlock()
+			if err := RefreshFeed(ctx, db, storedFeed); err != nil {
+				t.Fatalf("refresh updated fields: %v", err)
+			}
+			updated, err := queries.GetPostsByFeed(ctx, storedFeed.ID)
+			if err != nil {
+				t.Fatalf("list updated posts: %v", err)
+			}
+			if len(updated) != 1 {
+				t.Fatalf("updated post count = %d, want 1", len(updated))
+			}
+			post := updated[0]
+			if post.ID != initial[0].ID || post.CreatedAt != initial[0].CreatedAt {
+				t.Fatalf("post identity = (%d, %q), want preserved (%d, %q)", post.ID, post.CreatedAt, initial[0].ID, initial[0].CreatedAt)
+			}
+			if post.Title != tt.wantTitle || post.Link != "" || post.Content != tt.wantContent || post.ContentKind != string(tt.wantKind) {
+				t.Fatalf("updated reader fields = (%q, %q, %q, %q), want (%q, empty, %q, %q)", post.Title, post.Link, post.Content, post.ContentKind, tt.wantTitle, tt.wantContent, tt.wantKind)
+			}
+			if post.PublishedRaw != tt.wantPubRaw || post.UpdatedRaw != tt.wantUpdated {
+				t.Fatalf("updated raw dates = (%q, %q), want (%q, %q)", post.PublishedRaw, post.UpdatedRaw, tt.wantPubRaw, tt.wantUpdated)
+			}
+			if post.GuidIsPermalink.Valid || post.PublishedAt.Valid != tt.wantPubDate || post.SourceUpdatedAt.Valid != tt.wantUpdateDate {
+				t.Fatalf("updated nullable metadata = (GUID %v, published %v, updated %v)", post.GuidIsPermalink, post.PublishedAt, post.SourceUpdatedAt)
+			}
+		})
+	}
+}
+
 func TestPostIdentitySelection(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -55,8 +55,9 @@ and the successful-fetch timestamp together.
 ## Verification completed
 
 - Added database and HTTP-backed tests for schema constraints, Atom/RSS metadata,
-  ID precedence and link fallback, whitespace/missing identity, duplicate
-  identities, updates, retained missing entries, empty feeds, date values,
+  ID precedence and link fallback, verbatim RSS identifiers with whitespace-
+  differing GUIDs/links, whitespace/missing identity, duplicate identities,
+  empty-field and invalid-date replacement, retained missing entries, empty feeds,
   persistence after database reopen, and database failure rollback.
 - Added coverage for per-feed refresh serialization and cancellation while
   waiting, and asserted normalized entry update dates.

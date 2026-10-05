@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/pressly/goose/v3"
@@ -29,7 +30,12 @@ func main() {
 		Cfg: &cfg,
 	}
 
-	db, err := sql.Open("sqlite", cfg.DbURL)
+	dbURL := cfg.DbURL
+	separator := "?"
+	if strings.Contains(dbURL, "?") {
+		separator = "&"
+	}
+	db, err := sql.Open("sqlite", dbURL+separator+"_pragma=foreign_keys(1)")
 	if err != nil {
 		log.Fatalf("connection to database failed: %v", err)
 	}
@@ -46,6 +52,7 @@ func main() {
 
 	dbQueries := database.New(db)
 	state.Db = dbQueries
+	state.SQLDB = db
 
 	p := ui.NewProgram(&state)
 	if _, err := p.Run(); err != nil {

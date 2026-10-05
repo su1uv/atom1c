@@ -1,10 +1,15 @@
 package internal
 
-import "github.com/su1uv/atom1c/internal/database"
+import (
+	"database/sql"
+
+	"github.com/su1uv/atom1c/internal/database"
+)
 
 type State struct {
-	Db  *database.Queries
-	Cfg *Config
+	Db    *database.Queries
+	SQLDB *sql.DB
+	Cfg   *Config
 }
 
 type Config struct {

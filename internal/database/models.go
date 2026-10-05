@@ -17,6 +17,24 @@ type Feed struct {
 	LastFetchedAt sql.NullString
 }
 
+type Post struct {
+	ID              int64
+	FeedID          int64
+	IdentityKey     string
+	CreatedAt       string
+	UpdatedAt       string
+	SourceID        string
+	GuidIsPermalink sql.NullInt64
+	Title           string
+	Link            string
+	Content         string
+	ContentKind     string
+	PublishedRaw    string
+	PublishedAt     sql.NullString
+	UpdatedRaw      string
+	SourceUpdatedAt sql.NullString
+}
+
 type User struct {
 	ID        int64
 	CreatedAt string

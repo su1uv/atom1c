@@ -120,18 +120,18 @@ func parseRSSFeed(content []byte) (*Feed, error) {
 	for _, source := range channel.Items {
 		entry := Entry{
 			Title:       strings.TrimSpace(source.Title),
-			Link:        strings.TrimSpace(source.Link),
+			Link:        source.Link,
 			Published:   rssDate(source.PubDate),
 			ContentKind: ContentHTML,
 		}
 		if source.GUID != nil {
-			entry.ID = strings.TrimSpace(source.GUID.Value)
+			entry.ID = source.GUID.Value
 			permalink, err := rssGUIDIsPermalink(source.GUID.IsPermaLink)
 			if err != nil {
 				return nil, fmt.Errorf("RSS item %q: %w", entry.Title, err)
 			}
 			entry.GUIDIsPermaLink = &permalink
-			if entry.Link == "" && permalink {
+			if strings.TrimSpace(entry.Link) == "" && permalink {
 				entry.Link = entry.ID
 			}
 		}

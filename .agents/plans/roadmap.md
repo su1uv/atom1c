@@ -41,7 +41,9 @@
 - Define stable entry identity and deduplication rules before implementation.
 - Store entries with their originating feed.
 - Record successful fetches only after post persistence succeeds.
-- **Done:** repeated fetching does not duplicate posts; posts survive restart.
+- **Done:** repeated fetching updates rather than duplicates posts; entries and
+  successful-fetch timestamps commit atomically. Posts survive restart. See
+  [implementation plan](04-post-persistence.md).
 
 ### 5. Fix UI focus and input routing
 - Focus the first input when opening the add-feed modal.

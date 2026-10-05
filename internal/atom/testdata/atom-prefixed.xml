@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<atom:feed xmlns:atom="http://www.w3.org/2005/Atom">
+  <atom:title>Prefixed feed</atom:title>
+  <atom:link href="https://example.com/" />
+  <atom:entry>
+    <atom:title>Rich entry</atom:title>
+    <atom:link href="https://example.com/rich" />
+    <atom:content type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml"><p>Rich <strong>text</strong></p></div></atom:content>
+  </atom:entry>
+</atom:feed>

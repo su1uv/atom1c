@@ -8,8 +8,10 @@
 ## Working agreements and memory
 - Read `MEMORY.md` as the agent's short-term memory of current project problems.
   Keep it concise (at most 60 lines) and update it as problems change or resolve.
-- Implement project logic using TDD: write a meaningful failing test before the
-  implementation. UI-only styling and visual presentation tasks are exempt.
+- Use TDD whenever applicable: write and run a meaningful failing test before
+  implementing the behavior, then make it pass and refactor. UI-only styling and
+  visual presentation tasks are exempt.
+- Use table-driven tests whenever they make sense for the behavior being tested.
 - After every completed task, check whether `AGENTS.md` needs updating and update
   it when necessary. Keep guidance lean; structure is expected to change often.
 - Ask questions when requirements are unclear; do not make assumptions.

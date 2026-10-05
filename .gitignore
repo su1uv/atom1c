@@ -3,6 +3,11 @@
 *.tape
 
 .agents
+# Keep project plans versioned while ignoring other local agent config.
+!.agents/
+.agents/*
+!.agents/plans/
+!.agents/plans/**
 
 
 

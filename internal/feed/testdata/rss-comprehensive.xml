@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:c="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>RSS &amp; Updates</title>
+    <link>https://example.com/</link>
+    <pubDate>Thu, 01 Oct 2026 12:30:00 +0000</pubDate>
+    <item>
+      <title>Encoded entry</title>
+      <link>https://example.com/posts/encoded</link>
+      <guid isPermaLink="false">entry-encoded</guid>
+      <description><![CDATA[<p>Description fallback</p>]]></description>
+      <c:encoded><![CDATA[<p>Fish &amp; chips</p>]]></c:encoded>
+      <pubDate>Thu, 01 Oct 2026 12:00:00 -0400</pubDate>
+    </item>
+    <item>
+      <title>GUID link</title>
+      <guid>https://example.com/posts/guid</guid>
+      <description>&lt;p&gt;Tom &amp;amp; Jerry&lt;/p&gt;</description>
+      <pubDate>02 Oct 26 13:00 -0700</pubDate>
+    </item>
+    <item>
+      <title>Empty encoded content</title>
+      <guid isPermaLink="false">opaque-id</guid>
+      <description>Must not be selected</description>
+      <c:encoded></c:encoded>
+      <pubDate>not a date</pubDate>
+    </item>
+    <item>
+      <title>Missing optional values</title>
+    </item>
+  </channel>
+</rss>

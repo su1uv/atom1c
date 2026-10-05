@@ -2,12 +2,11 @@
 
 *.tape
 
-.agents
-# Keep project plans versioned while ignoring other local agent config.
-!.agents/
-.agents/*
-!.agents/plans/
-!.agents/plans/**
+# Agent tooling is local-only; retain project plans for roadmap versioning.
+/.opencode/
+/.agents/*
+!/.agents/plans/
+!/.agents/plans/**
 
 
 

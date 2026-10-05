@@ -10,7 +10,6 @@ Current problems; update as work resolves them. This is a snapshot, not the road
 - The scraper is not invoked by startup/UI; no automatic refresh exists.
 - Fetched entries are not persisted; no posts schema or queries exist.
 - No article-reading view exists.
-- Parsing currently targets Atom; RSS support is not implemented.
 - User records exist, but no SSH identity/session integration is implemented.
 
 ## Existing defects and limitations
@@ -20,8 +19,8 @@ Current problems; update as work resolves them. This is a snapshot, not the road
 
 ## Verification baseline
 - On 2026-10-05, `go test ./... -timeout 30s`, `go vet ./...`, and
-  `go test ./... -run '^$'` passed. Atom fetch tests use fixtures and local HTTP
-  servers, with no external network dependency.
+  `go test ./... -run '^$'` passed. Feed tests use Atom/RSS fixtures and local
+  HTTP servers, with no external network dependency.
 - Repeated `sqlc generate` was stable during the timestamp work.
 - The timestamp schema is still development-only and has not been deployed.
   Existing migrations already use TEXT with UTC second-precision CURRENT_TIMESTAMP
@@ -29,4 +28,11 @@ Current problems; update as work resolves them. This is a snapshot, not the road
 - Database integration tests cover fresh-schema timestamp round trips, ordering,
   nullability, and persistence.
 - UI behavior and end-to-end workflows remain untested.
+- PR3 corrections verified RSS namespace isolation, common date variants, full
+  XML consumption, and a 10 MiB decoded response cap (including streamed/gzip
+  bodies); failures precede parsing and successful-fetch marking.
 - Passing checks do not establish functional completeness.
+
+## Local tooling
+- `.opencode/` and non-plan `.agents/` files are ignored and untracked; roadmap
+  plans remain versioned. The formerly tracked review command is preserved locally.

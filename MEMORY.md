@@ -32,3 +32,7 @@ Current problems; update as work resolves them. This is a snapshot, not the road
   XML consumption, and a 10 MiB decoded response cap (including streamed/gzip
   bodies); failures precede parsing and successful-fetch marking.
 - Passing checks do not establish functional completeness.
+
+## Local tooling
+- `.opencode/` and non-plan `.agents/` files are ignored and untracked; roadmap
+  plans remain versioned. The formerly tracked review command is preserved locally.

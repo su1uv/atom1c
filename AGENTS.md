@@ -15,6 +15,8 @@
 - After every completed task, check whether `AGENTS.md` needs updating and update
   it when necessary. Keep guidance lean; structure is expected to change often.
 - Ask questions when requirements are unclear; do not make assumptions.
+- Keep `.opencode/` and `.agents/` tooling local-only; only `.agents/plans/`
+  is versioned for the roadmap. Preserve local files when removing tracking.
 
 ## Commit and publication rules
 - Only atomic commits, with short, meaningful messages using one of these prefixes:

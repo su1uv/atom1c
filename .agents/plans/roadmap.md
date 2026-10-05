@@ -29,9 +29,10 @@
   cancellation. See [implementation plan](02-atom-fetching.md).
 
 ### 3. Add RSS 2.0 support
-- Detect RSS 2.0 and normalize Atom/RSS into a shared feed/post representation.
+- Detect RSS 2.0 and normalize Atom/RSS into a shared feed/entry representation.
 - Test representative RSS fixtures.
-- **Done:** storage and UI consume either format without format-specific logic.
+- **Done:** both formats return the shared representation, ready for the storage
+  and UI integrations in steps 4–7. See [implementation plan](03-rss-support.md).
 
 ## Milestone 2 — Real-data workflow
 

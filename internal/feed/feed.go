@@ -42,6 +42,9 @@ type Entry struct {
 }
 
 // Fetch retrieves and parses an Atom or RSS 2.0 feed.
+// Responses are limited to 10 MiB (10,485,760 bytes) of decoded body data,
+// including transparent HTTP decompression. Oversize responses return an error
+// before parsing; Content-Length does not determine acceptance.
 func Fetch(ctx context.Context, feedURL string) (*Feed, error) {
 	return fetchWithClient(ctx, feedURL, feedHTTPClient)
 }

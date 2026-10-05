@@ -124,6 +124,23 @@ private to the package's tests.
 - [x] HTTP fetching remains bounded and cancellable; response bodies are closed.
 - [x] Tests require no external network access and all required checks pass.
 
+## PR3 review corrections (2026-10-05)
+
+- Added regression tables and ran them before implementation. All four targeted
+  tests failed: RSS namespace collisions replaced core values, common date
+  variants stayed unnormalized, trailing XML was accepted, and oversize bodies
+  were accepted (including streamed and gzip-decoded responses).
+- RSS core elements/attributes now require an empty namespace; standard
+  content namespace matching remains independent of prefix.
+- Common RSS date layouts support single-digit days, short years, optional
+  weekdays/seconds, and numeric offsets without guessing unknown zones.
+- Validate the entire XML document through EOF, requiring exactly one root and
+  allowing surrounding whitespace, comments, and processing instructions.
+- Fetch limits decoded body data to 10 MiB (10,485,760 bytes), reading at most
+  limit+1 bytes regardless of Content-Length, before parsing or marking fetched.
+- Targeted tests and the full suite, vet, compile check, and diff check passed.
+- Checked repository guidance; no feed-specific guidance change was needed.
+
 ## Commit and publication
 
 Treat the shared module, RSS support, date normalization, tests, and associated

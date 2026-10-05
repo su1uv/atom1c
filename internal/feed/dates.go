@@ -23,22 +23,21 @@ var rssZoneOffsets = map[string]string{
 	"EEST": "+0300",
 }
 
-var rssDateLayouts = []string{
-	time.RFC1123Z,
-	time.RFC1123,
-	time.RFC822Z,
-	time.RFC822,
-	"Mon, 02 Jan 2006 15:04 -0700",
-	"Mon, 02 Jan 2006 15:04:05 -07:00",
-	"Mon, 02 Jan 2006 15:04 -07:00",
-	"Mon, 02 Jan 2006 15:04 MST",
-	"02 Jan 2006 15:04:05 -0700",
-	"02 Jan 2006 15:04:05 -07:00",
-	"02 Jan 2006 15:04:05 MST",
-	"02 Jan 2006 15:04 -0700",
-	"02 Jan 2006 15:04 -07:00",
-	"02 Jan 2006 15:04 MST",
-}
+var rssDateLayouts = func() []string {
+	var layouts []string
+	// Day layout "2" accepts both padded and single-digit days. Named zones
+	// are normalized to known numeric offsets before trying these layouts.
+	for _, weekday := range []string{"Mon, ", ""} {
+		for _, year := range []string{"2006", "06"} {
+			for _, clock := range []string{"15:04:05", "15:04"} {
+				for _, zone := range []string{"-0700", "-07:00"} {
+					layouts = append(layouts, weekday+"2 Jan "+year+" "+clock+" "+zone)
+				}
+			}
+		}
+	}
+	return layouts
+}()
 
 func atomDate(raw string) SourceDate {
 	return sourceDate(raw, []string{time.RFC3339Nano})

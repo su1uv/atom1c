@@ -28,4 +28,7 @@ Current problems; update as work resolves them. This is a snapshot, not the road
 - Database integration tests cover fresh-schema timestamp round trips, ordering,
   nullability, and persistence.
 - UI behavior and end-to-end workflows remain untested.
+- PR3 corrections verified RSS namespace isolation, common date variants, full
+  XML consumption, and a 10 MiB decoded response cap (including streamed/gzip
+  bodies); failures precede parsing and successful-fetch marking.
 - Passing checks do not establish functional completeness.

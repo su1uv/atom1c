@@ -7,8 +7,8 @@ Current problems; update as work resolves them. This is a snapshot, not the road
 - Feed and post lists use mocks, not database data.
 - Add-feed submission only closes the modal; database handlers are not wired in.
 - Selecting a feed changes focus but does not load its posts.
-- The scraper is not invoked by startup/UI; no automatic refresh exists.
-- Fetched entries are not persisted; no posts schema or queries exist.
+- Feed refresh now persists posts, but is not invoked by startup/UI; no automatic
+  refresh exists.
 - No article-reading view exists.
 - User records exist, but no SSH identity/session integration is implemented.
 
@@ -31,6 +31,8 @@ Current problems; update as work resolves them. This is a snapshot, not the road
 - PR3 corrections verified RSS namespace isolation, common date variants, full
   XML consumption, and a 10 MiB decoded response cap (including streamed/gzip
   bodies); failures precede parsing and successful-fetch marking.
+- Step 4 added transactional post upserts and feed-scoped identity; full tests, vet,
+  compile check, sqlc generation, and diff check passed.
 - Passing checks do not establish functional completeness.
 
 ## Local tooling

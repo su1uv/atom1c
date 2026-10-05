@@ -59,8 +59,10 @@ func TestTimestampRoundTrips(t *testing.T) {
 	if next.ID != neverFetched.ID || next.LastFetchedAt.Valid {
 		t.Fatalf("next feed = (%d, %v), want never-fetched feed %d", next.ID, next.LastFetchedAt, neverFetched.ID)
 	}
-	if err := queries.MarkFeedAsFetched(ctx, neverFetched.ID); err != nil {
+	if affected, err := queries.MarkFeedAsFetched(ctx, neverFetched.ID); err != nil {
 		t.Fatalf("mark never-fetched feed: %v", err)
+	} else if affected != 1 {
+		t.Fatalf("mark fetched rows = %d, want 1", affected)
 	}
 	updated, err := queries.GetNextFeedToFetch(ctx)
 	if err != nil {

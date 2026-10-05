@@ -17,7 +17,7 @@ INSERT INTO feeds (
     ?, ?
 ) RETURNING *;
 
--- name: MarkFeedAsFetched :exec
+-- name: MarkFeedAsFetched :execrows
 UPDATE feeds
 SET last_fetched_at = CURRENT_TIMESTAMP,
     updated_at = CURRENT_TIMESTAMP

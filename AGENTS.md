@@ -21,7 +21,13 @@
 ## Commit and publication rules
 - Only atomic commits, with short, meaningful messages using one of these prefixes:
   `[feat]: ...`, `[fix]: ...`, `[misc]: ...`, `[refac]: ...`.
-- For multi-step plans, make one atomic commit per step.
+- A numbered roadmap item is an implementation plan, not a commit boundary. Before
+  implementation, divide each plan into small, cohesive, independently reviewable
+  and verified changes. Each authorized commit must complete one such change and
+  include its relevant tests and documentation. Split a change further when its
+  scope becomes too large or combines independently useful behavior; do not bundle
+  an entire plan just because it belongs to one roadmap item. Keep each committed
+  state compiling and passing required checks.
 - Before each commit: tests must pass, run `go vet ./...`, verify compilation,
   and run any other checks applicable to the changes. Review the intended diff.
 - Commit only when explicitly requested or authorized.

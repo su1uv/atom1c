@@ -40,3 +40,5 @@ Current problems; update as work resolves them. This is a snapshot, not the road
 ## Local tooling
 - `.opencode/` and non-plan `.agents/` files are ignored and untracked; roadmap
   plans remain versioned. The formerly tracked review command is preserved locally.
+- Roadmap items are implementation plans, not commit boundaries; split work into
+  small, independently reviewable commits per `AGENTS.md`.

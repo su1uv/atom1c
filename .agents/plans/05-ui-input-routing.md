@@ -43,8 +43,10 @@ focus state with a clearer ownership structure.
 
 ## Commit and publication
 
-Treat the root routing, shared list pane, modal lifecycle, and regression tests as
-one atomic roadmap step. Suggested commit: `[fix]: route UI input to focused controls`.
+The original commit guidance grouped the complete roadmap step as one change; that
+guidance is superseded. A plan is not a commit boundary: split future work into
+small, independently reviewable and verified changes as required by
+[AGENTS.md](../../AGENTS.md).
 
 Commit only with explicit authorization. Publishing requires fresh explicit
 authorization to push a new branch and open a PR targeting `main`.

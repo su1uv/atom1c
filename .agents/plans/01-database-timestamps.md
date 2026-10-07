@@ -92,8 +92,10 @@ Avoid relying on sleeps or assuming second-level timestamps are unique.
 
 ## Commit and publication
 
-The SQL changes, generated code, caller updates, tests, and memory/guidance updates
-form one atomic fix. Commit only when explicitly authorized.
+The original commit guidance grouped the complete implementation as one fix; that
+guidance is superseded. A plan is not a commit boundary: split future work into
+small, independently reviewable and verified changes as required by
+[AGENTS.md](../../AGENTS.md). Commit only when explicitly authorized.
 
 Suggested message: `[fix]: reconcile SQLite timestamps`.
 

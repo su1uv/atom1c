@@ -73,8 +73,10 @@ and the successful-fetch timestamp together.
 
 ## Commit and publication
 
-Treat the migration, SQL queries/generated code, refresh logic, tests, and records
-as one atomic roadmap step. Suggested commit: `[feat]: persist fetched posts`.
+The original commit guidance grouped the complete roadmap step as one change; that
+guidance is superseded. A plan is not a commit boundary: split future work into
+small, independently reviewable and verified changes as required by
+[AGENTS.md](../../AGENTS.md).
 
 Commit only with explicit authorization. Publishing requires fresh explicit
 authorization to push a new branch and open a PR targeting `main`.

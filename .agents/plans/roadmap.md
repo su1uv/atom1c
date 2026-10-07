@@ -66,10 +66,18 @@
 
 ### 7. Fetch feeds and display their posts
 - Add an explicit asynchronous refresh action.
-- Replace post mocks with posts belonging to the selected feed.
-- Show loading, empty, and failure states without blocking the UI.
+- Replace post mocks with persisted posts from the feed opened with `tab`; moving
+  through the feed list does not change the open posts pane.
+- Load posts asynchronously, retaining the existing in-memory filtering and
+  pagination. Show loading, empty, and recoverable failure states without blocking
+  the UI.
+- Use `R` to refresh the selected feed from either pane; keep `r` for retrying the
+  failed database read or refresh operation in the focused pane.
+- After a successful refresh, reload posts if that feed is open; distinguish a
+  failed refresh from a failed post reload so retry repeats only the failed action.
 - Route operational messages through the UI rather than printing over it.
-- **Done:** add, refresh, and select a feed to browse actual persisted posts.
+- **In progress:** add, explicitly refresh, and open a feed to browse persisted
+  posts. See [implementation plan](07-feed-posts.md).
 
 ## Milestone 3 — Version 1.0 reader
 
@@ -117,8 +125,11 @@
 ## Execution rules
 
 - Start with step 1, then proceed through the milestones in order.
-- Each numbered step targets one atomic commit; split oversized steps into
-  smaller independently verified steps before implementation.
+- Numbered steps are plans, not commit boundaries. Before implementation, split
+  each plan into small, cohesive, independently reviewable and verified changes.
+  Each authorized commit completes one such change, including relevant tests and
+  documentation. Further split work that becomes too broad or combines independent
+  behavior; keep every committed state compiling and passing required checks.
 - Ask about unclear requirements rather than assuming behavior.
 - Add meaningful verification for the behavior being changed.
 - Before each authorized commit, run:

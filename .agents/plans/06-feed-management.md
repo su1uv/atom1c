@@ -55,8 +55,10 @@ errors without losing an in-progress draft.
 
 ## Commit and publication
 
-Treat queries/generated code, handlers, UI commands, tests, and documentation as
-one roadmap step. Suggested commit: `[feat]: connect feed management to SQLite`.
+The original commit guidance grouped the complete roadmap step as one change; that
+guidance is superseded. A plan is not a commit boundary: split future work into
+small, independently reviewable and verified changes as required by
+[AGENTS.md](../../AGENTS.md).
 
 Commit only with explicit authorization. Publishing requires fresh explicit
 authorization to push a new branch and open a PR targeting `main`.

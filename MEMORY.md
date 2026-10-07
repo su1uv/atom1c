@@ -12,11 +12,6 @@ Current problems; update as work resolves them. This is a snapshot, not the road
 - No article-reading view exists.
 - User records exist, but no SSH identity/session integration is implemented.
 
-## Existing defects and limitations
-- Add-feed inputs are not initially focused.
-- Global `a` handling can interrupt list filtering.
-- Pagination handling runs before pane focus checks and affects both lists.
-
 ## Verification baseline
 - On 2026-10-05, `go test ./... -timeout 30s`, `go vet ./...`, and
   `go test ./... -run '^$'` passed. Feed tests use Atom/RSS fixtures and local
@@ -27,12 +22,16 @@ Current problems; update as work resolves them. This is a snapshot, not the road
   defaults; no legacy-data backfill migration is needed.
 - Database integration tests cover fresh-schema timestamp round trips, ordering,
   nullability, and persistence.
-- UI behavior and end-to-end workflows remain untested.
+- Step 5 added root-owned UI key routing and shared list-pane behavior. UI model
+  tests cover modal focus/draft lifecycle, filtering shortcuts, pane-scoped async
+  results, pagination scope, and pane switching; broader end-to-end workflows
+  remain untested.
 - PR3 corrections verified RSS namespace isolation, common date variants, full
   XML consumption, and a 10 MiB decoded response cap (including streamed/gzip
   bodies); failures precede parsing and successful-fetch marking.
 - Step 4 added transactional post upserts and feed-scoped identity; full tests, vet,
   compile check, sqlc generation, and diff check passed.
+- Step 5 passed full tests, vet, compile check, and diff check.
 - Passing checks do not establish functional completeness.
 
 ## Local tooling

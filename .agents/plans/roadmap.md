@@ -50,7 +50,9 @@
 - Prevent global shortcuts from interfering with modal input or filtering.
 - Apply pagination actions only to the focused pane.
 - Verify navigation, filtering, and modal reopening.
-- **Done:** input consistently reaches the intended control.
+- **Done:** root-owned routing sends keys to the modal, active filter, or focused
+  list; modal drafts survive reopening and shared list-pane logic avoids duplicated
+  focus handling. See [implementation plan](05-ui-input-routing.md).
 
 ### 6. Connect feed management to SQLite
 - Replace feed mocks with database results and persist add-feed submissions.

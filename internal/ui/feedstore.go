@@ -1,0 +1,31 @@
+package ui
+
+import (
+	"context"
+
+	"github.com/su1uv/atom1c/internal"
+	"github.com/su1uv/atom1c/internal/database"
+	"github.com/su1uv/atom1c/internal/handlers"
+)
+
+type feedStore interface {
+	GetPage(context.Context, handlers.FeedPageParams) (handlers.FeedPage, error)
+	Add(context.Context, handlers.AddFeedParams) (database.Feed, error)
+	Position(context.Context, int64, string) (int64, error)
+}
+
+type stateFeedStore struct {
+	state *internal.State
+}
+
+func (s stateFeedStore) GetPage(ctx context.Context, params handlers.FeedPageParams) (handlers.FeedPage, error) {
+	return handlers.HandleGetFeedsPage(ctx, s.state, params)
+}
+
+func (s stateFeedStore) Add(ctx context.Context, params handlers.AddFeedParams) (database.Feed, error) {
+	return handlers.HandleAddFeed(ctx, s.state, params)
+}
+
+func (s stateFeedStore) Position(ctx context.Context, id int64, search string) (int64, error) {
+	return handlers.HandleGetFeedPosition(ctx, s.state, id, search)
+}

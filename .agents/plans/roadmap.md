@@ -55,11 +55,14 @@
   focus handling. See [implementation plan](05-ui-input-routing.md).
 
 ### 6. Connect feed management to SQLite
-- Replace feed mocks with database results and persist add-feed submissions.
-- Validate inputs, display errors, and refresh the list after submission.
-- Remove the fixed 20-feed limit or implement database pagination.
-- Run database work through Bubble Tea commands and result messages.
-- **Done:** added feeds appear immediately and remain after restart.
+- Replace feed mocks with async database results and persist add-feed submissions.
+- Validate nonblank names and absolute HTTP(S) URLs; retain drafts and show errors
+  when submission fails.
+- Use responsive database pagination and global case-insensitive name substring
+  search; expose retry for load failures.
+- Run page loads and inserts through Bubble Tea commands and typed result messages.
+- **Done:** all feeds are reachable/searchable; successful additions appear selected
+  immediately and survive database reopen. See [implementation plan](06-feed-management.md).
 
 ### 7. Fetch feeds and display their posts
 - Add an explicit asynchronous refresh action.

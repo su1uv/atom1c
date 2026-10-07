@@ -9,6 +9,19 @@ import (
 	"context"
 )
 
+const countFeeds = `-- name: CountFeeds :one
+SELECT COUNT(*)
+FROM feeds
+WHERE instr(unicode_lower(name), unicode_lower(CAST(?1 AS TEXT))) > 0
+`
+
+func (q *Queries) CountFeeds(ctx context.Context, search string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countFeeds, search)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createFeed = `-- name: CreateFeed :one
 INSERT INTO feeds (
     name, url
@@ -36,7 +49,34 @@ func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (Feed, e
 	return i, err
 }
 
-const getFeeds = `-- name: GetFeeds :many
+const getFeedPosition = `-- name: GetFeedPosition :one
+WITH target AS (
+    SELECT feed.id, feed.created_at
+    FROM feeds AS feed
+    WHERE feed.id = ?2
+)
+SELECT COUNT(*)
+FROM feeds, target
+WHERE instr(unicode_lower(feeds.name), unicode_lower(CAST(?1 AS TEXT))) > 0
+  AND (
+      feeds.created_at < target.created_at
+      OR (feeds.created_at = target.created_at AND feeds.id < target.id)
+  )
+`
+
+type GetFeedPositionParams struct {
+	Search string
+	ID     int64
+}
+
+func (q *Queries) GetFeedPosition(ctx context.Context, arg GetFeedPositionParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getFeedPosition, arg.Search, arg.ID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const getFeedsPage = `-- name: GetFeedsPage :many
 SELECT
     id,
     created_at,
@@ -45,12 +85,19 @@ SELECT
     url,
     last_fetched_at
 FROM feeds
-ORDER BY created_at
-LIMIT 20
+WHERE instr(unicode_lower(name), unicode_lower(CAST(?1 AS TEXT))) > 0
+ORDER BY created_at, id
+LIMIT ?3 OFFSET ?2
 `
 
-func (q *Queries) GetFeeds(ctx context.Context) ([]Feed, error) {
-	rows, err := q.db.QueryContext(ctx, getFeeds)
+type GetFeedsPageParams struct {
+	Search string
+	Offset int64
+	Limit  int64
+}
+
+func (q *Queries) GetFeedsPage(ctx context.Context, arg GetFeedsPageParams) ([]Feed, error) {
+	rows, err := q.db.QueryContext(ctx, getFeedsPage, arg.Search, arg.Offset, arg.Limit)
 	if err != nil {
 		return nil, err
 	}

@@ -4,6 +4,7 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/su1uv/atom1c/internal/database"
 )
 
 type listPane struct {
@@ -13,11 +14,21 @@ type listPane struct {
 }
 
 func initialFeedsModel(styles Styles) listPane {
-	return newListPane("Feeds", feedsMock, styles, focusFeeds)
+	pane := newListPane("Feeds", nil, styles, focusFeeds)
+	pane.list.SetShowPagination(false)
+	return pane
 }
 
 func initialPostsModel(styles Styles) listPane {
 	return newListPane("Posts", postsMock, styles, focusPosts)
+}
+
+func feedItems(feeds []database.Feed) []list.Item {
+	items := make([]list.Item, len(feeds))
+	for i, feed := range feeds {
+		items[i] = item{id: feed.ID, name: feed.Name, url: feed.Url}
+	}
+	return items
 }
 
 func newListPane(title string, items []item, styles Styles, id focusState) listPane {

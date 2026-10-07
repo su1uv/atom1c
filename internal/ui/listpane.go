@@ -20,13 +20,21 @@ func initialFeedsModel(styles Styles) listPane {
 }
 
 func initialPostsModel(styles Styles) listPane {
-	return newListPane("Posts", postsMock, styles, focusPosts)
+	return newListPane("Posts", nil, styles, focusPosts)
 }
 
 func feedItems(feeds []database.Feed) []list.Item {
 	items := make([]list.Item, len(feeds))
 	for i, feed := range feeds {
 		items[i] = item{id: feed.ID, name: feed.Name, url: feed.Url}
+	}
+	return items
+}
+
+func postItems(posts []database.Post) []list.Item {
+	items := make([]list.Item, len(posts))
+	for i, post := range posts {
+		items[i] = item{id: post.ID, name: post.Title, url: post.Link}
 	}
 	return items
 }

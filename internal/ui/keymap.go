@@ -14,6 +14,7 @@ type listKeyMap struct {
 	quit             key.Binding
 	addFeed          key.Binding
 	retry            key.Binding
+	refresh          key.Binding
 }
 
 func newListKeyMap() *listKeyMap {
@@ -24,7 +25,11 @@ func newListKeyMap() *listKeyMap {
 		),
 		retry: key.NewBinding(
 			key.WithKeys("r"),
-			key.WithHelp("r", "retry feed load"),
+			key.WithHelp("r", "retry failed operation"),
+		),
+		refresh: key.NewBinding(
+			key.WithKeys("R"),
+			key.WithHelp("R", "refresh feed"),
 		),
 		next: key.NewBinding(
 			key.WithKeys("j", "down"),

@@ -15,10 +15,26 @@ func testModel() model {
 	m := newModel(&internal.State{}).(model)
 	items := make([]list.Item, 5)
 	for i := range items {
-		items[i] = item{name: fmt.Sprintf("Feed %d", i), url: fmt.Sprintf("https://example.test/%d", i)}
+		items[i] = item{id: int64(i + 1), name: fmt.Sprintf("Feed %d", i), url: fmt.Sprintf("https://example.test/%d", i)}
 	}
 	_ = m.feeds.list.SetItems(items)
+	postFixtures := []item{
+		{name: "Test post one", url: "https://example.test/post-one"},
+		{name: "Test post two", url: "https://example.test/post-two"},
+	}
+	postItems := make([]list.Item, len(postFixtures))
+	for i := range postFixtures {
+		postItems[i] = postFixtures[i]
+	}
+	_ = m.posts.list.SetItems(postItems)
+	m.openFeedID = 1
+	m.openFeedName = "Feed 0"
+	m.openFeedURL = "https://example.test/0"
 	return m
+}
+
+func shiftTab() tea.KeyPressMsg {
+	return tea.KeyPressMsg(tea.Key{Code: tea.KeyTab, Mod: tea.ModShift})
 }
 
 func press(text string, code rune) tea.KeyPressMsg {
@@ -145,6 +161,8 @@ func TestPostFilteringRoutesShortcutCharactersToFocusedFilter(t *testing.T) {
 	}{
 		{text: "a", code: 'a'},
 		{text: "P", code: 'P'},
+		{text: "R", code: 'R'},
+		{text: "r", code: 'r'},
 		{text: "q", code: 'q'},
 	} {
 		t.Run(tc.text, func(t *testing.T) {
@@ -206,6 +224,7 @@ func TestListNavigationAffectsOnlyFocusedPane(t *testing.T) {
 		t.Fatalf("inactive posts pane index = %d, want 0", got)
 	}
 
+	m.openFeedID = 2 // Keep the test's seeded posts when opening the selected feed.
 	m = updateModel(m, press("tab", tea.KeyTab))
 	m = updateModel(m, press("down", tea.KeyDown))
 	if got := m.feeds.list.Index(); got != 1 {
@@ -235,6 +254,7 @@ func TestPaneSwitchKeyIsConsumedByRootModel(t *testing.T) {
 
 func TestPaneCommandsTagAsyncResults(t *testing.T) {
 	pane := initialPostsModel(newStyles(false))
+	_ = pane.list.SetItems([]list.Item{item{name: "Test", url: "https://example.test/post"}})
 	cmd := pane.Update(press("/", '/'))
 	if cmd == nil {
 		t.Fatal("starting the filter produced no command")

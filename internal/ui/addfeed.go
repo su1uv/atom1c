@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"charm.land/bubbles/v2/cursor"
@@ -9,6 +10,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/su1uv/atom1c/internal/handlers"
 )
 
 var (
@@ -32,6 +34,7 @@ func initialAddFeedModel(style lipgloss.Style) addFeedModel {
 	for i := range m.inputs {
 		t = textinput.New()
 		t.CharLimit = 250
+		t.SetVirtualCursor(false)
 
 		s := t.Styles()
 		s.Cursor.Color = lipgloss.Color("205")
@@ -61,6 +64,8 @@ type addFeedModel struct {
 	inputs      []textinput.Model
 	cursorMode  cursor.Mode
 	style       lipgloss.Style
+	err         string
+	saving      bool
 }
 
 type addFeedAction int
@@ -85,6 +90,9 @@ func (m *addFeedModel) open() tea.Cmd {
 }
 
 func (m addFeedModel) Update(msg tea.Msg) (addFeedModel, tea.Cmd, addFeedAction) {
+	if m.saving {
+		return m, nil, addFeedNoAction
+	}
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch {
@@ -108,7 +116,15 @@ func (m addFeedModel) Update(msg tea.Msg) (addFeedModel, tea.Cmd, addFeedAction)
 			s := msg.String()
 
 			if s == "enter" && m.focusIndex == len(m.inputs) {
-				// TODO: Create new feed
+				name := strings.TrimSpace(m.inputs[0].Value())
+				feedURL := strings.TrimSpace(m.inputs[1].Value())
+				if validationError, invalidInput := validateFeedDraft(name, feedURL); validationError != "" {
+					m.err = validationError
+					m.focusIndex = invalidInput
+					return m, m.focusInput(), addFeedNoAction
+				}
+				m.inputs[0].SetValue(name)
+				m.inputs[1].SetValue(feedURL)
 				m.blurInputs()
 				return m, nil, addFeedSubmit
 			}
@@ -126,11 +142,51 @@ func (m addFeedModel) Update(msg tea.Msg) (addFeedModel, tea.Cmd, addFeedAction)
 			}
 
 			cmd := m.focusInput()
+			m.err = ""
 			return m, cmd, addFeedNoAction
 		}
 	}
 
-	return m, m.updateInputs(msg), addFeedNoAction
+	oldValues := make([]string, len(m.inputs))
+	for i := range m.inputs {
+		oldValues[i] = m.inputs[i].Value()
+	}
+	cmd := m.updateInputs(msg)
+	for i := range m.inputs {
+		if m.inputs[i].Value() != oldValues[i] {
+			m.err = ""
+			break
+		}
+	}
+	return m, cmd, addFeedNoAction
+}
+
+func validateFeedDraft(name, feedURL string) (string, int) {
+	if strings.TrimSpace(name) == "" {
+		return "Feed name is required.", 0
+	}
+	parsed, err := url.Parse(strings.TrimSpace(feedURL))
+	if err != nil || !parsed.IsAbs() || parsed.Host == "" || (!strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https")) {
+		return "Enter an absolute HTTP or HTTPS URL.", 1
+	}
+	return "", 0
+}
+
+func (m addFeedModel) submission() handlers.AddFeedParams {
+	return handlers.AddFeedParams{
+		Name: strings.TrimSpace(m.inputs[0].Value()),
+		URL:  strings.TrimSpace(m.inputs[1].Value()),
+	}
+}
+
+func (m *addFeedModel) reset() {
+	for i := range m.inputs {
+		m.inputs[i].SetValue("")
+		m.inputs[i].Blur()
+	}
+	m.focusIndex = 0
+	m.err = ""
+	m.saving = false
 }
 
 func (m *addFeedModel) focusInput() tea.Cmd {
@@ -173,16 +229,25 @@ func (m addFeedModel) View() tea.View {
 		if m.cursorMode != cursor.CursorHide && in.Focused() {
 			c = in.Cursor()
 			if c != nil {
+				c.X += 1
 				c.Y += 1
 			}
 		}
 	}
 
 	button := &blurredButton
-	if m.focusIndex == len(m.inputs) {
+	if m.focusIndex == len(m.inputs) && !m.saving {
 		button = &focusedButton
 	}
-	fmt.Fprintf(&b, "\n\n%s\n\n", *button)
+	if m.saving {
+		fmt.Fprintf(&b, "\n\n%s\n\n", focusedStyle.Render("[ Saving… ]"))
+	} else {
+		fmt.Fprintf(&b, "\n\n%s\n\n", *button)
+	}
+	if m.err != "" {
+		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render(m.err))
+		b.WriteString("\n\n")
+	}
 
 	b.WriteString(helpStyle.Render("cursor mode is "))
 	b.WriteString(cursorModeHelpStyle.Render(m.cursorMode.String()))

@@ -75,7 +75,7 @@ func TestTimestampRoundTrips(t *testing.T) {
 		t.Fatal("initial feed result unexpectedly changed after update")
 	}
 
-	feeds, err := queries.GetFeeds(ctx)
+	feeds, err := queries.GetFeedsPage(ctx, GetFeedsPageParams{Search: "", Limit: 10})
 	if err != nil {
 		t.Fatalf("list feeds: %v", err)
 	}

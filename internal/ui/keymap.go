@@ -13,6 +13,7 @@ type listKeyMap struct {
 	deselectItem     key.Binding
 	quit             key.Binding
 	addFeed          key.Binding
+	retry            key.Binding
 }
 
 func newListKeyMap() *listKeyMap {
@@ -20,6 +21,10 @@ func newListKeyMap() *listKeyMap {
 		addFeed: key.NewBinding(
 			key.WithKeys("a"),
 			key.WithHelp("a", "add feed"),
+		),
+		retry: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("r", "retry feed load"),
 		),
 		next: key.NewBinding(
 			key.WithKeys("j", "down"),

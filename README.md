@@ -34,13 +34,19 @@ Main view:
 | key | action |
 | --- | --- |
 | `a` | add a feed |
-| `j` / `k` (or arrows) | move up and down the list |
-| `h` / `l` (or arrows) | previous / next page |
-| `/` | filter the list |
+| `j` / `k` (or up / down) | move within the current list page |
+| `h` / `l` (or left / right) | previous / next page when the feeds pane is focused |
+| `/` | search all feeds by name (case-insensitive substring) |
 | `tab` | open the selected feed's posts |
 | `shift+tab` | back to feeds |
-| `P` | toggle pagination |
+| `P` | toggle the pagination indicator for the focused pane |
+| `r` | retry a failed feed load |
 | `q` / `ctrl+c` | quit |
+
+Feed search updates as you type. Press `enter` to stop editing, `esc` to leave
+search editing, and backspace to change or clear the query. Feed pages fit the
+current pane size; the list is loaded from SQLite rather than limited to a fixed
+number of feeds.
 
 Add feed modal:
 
@@ -49,7 +55,11 @@ Add feed modal:
 | `tab` / `shift+tab` (or `up` / `down`) | move between fields |
 | `enter` | submit |
 | `ctrl+r` | change cursor style |
-| `esc` | close |
+| `esc` | close before saving |
+
+Feed names must be nonblank and URLs must be absolute HTTP(S) URLs. The modal
+remains open while saving; failed saves preserve the draft so it can be corrected
+or retried.
 
 ## Contributing
 

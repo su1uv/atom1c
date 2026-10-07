@@ -1,15 +1,24 @@
 package ui
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
+	"charm.land/bubbles/v2/cursor"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"github.com/su1uv/atom1c/internal"
 )
 
 func testModel() model {
-	return newModel(&internal.State{}).(model)
+	m := newModel(&internal.State{}).(model)
+	items := make([]list.Item, 5)
+	for i := range items {
+		items[i] = item{name: fmt.Sprintf("Feed %d", i), url: fmt.Sprintf("https://example.test/%d", i)}
+	}
+	_ = m.feeds.list.SetItems(items)
+	return m
 }
 
 func press(text string, code rune) tea.KeyPressMsg {
@@ -35,6 +44,9 @@ func TestOpeningAddFeedModalFocusesFirstInputAndConsumesShortcut(t *testing.T) {
 	}
 	if got := m.addFeed.inputs[1].Value(); got != "" {
 		t.Fatalf("opening shortcut entered second modal input: got %q", got)
+	}
+	if m.View().Cursor == nil {
+		t.Fatal("add-feed input cursor was not exposed by the root view")
 	}
 }
 
@@ -114,36 +126,34 @@ func TestAddFeedSubmitRequiresSubmitButtonFocus(t *testing.T) {
 		t.Fatal("tab navigation did not focus Submit")
 	}
 	m = updateModel(m, press("enter", tea.KeyEnter))
-	if m.modalOpen {
-		t.Fatal("enter on Submit did not close the modal")
+	if !m.modalOpen {
+		t.Fatal("invalid submission closed the modal")
 	}
-	if got := m.addFeed.inputs[0].Value(); got != "name" {
-		t.Fatalf("submitting unexpectedly cleared the draft: got %q", got)
+	if !strings.Contains(m.addFeed.err, "absolute HTTP") || !m.addFeed.inputs[1].Focused() {
+		t.Fatalf("invalid URL did not show an error and focus its input: error %q", m.addFeed.err)
+	}
+	m = updateModel(m, cursor.BlinkMsg{})
+	if !strings.Contains(m.addFeed.err, "absolute HTTP") {
+		t.Fatal("cursor update cleared the validation error without user input")
 	}
 }
 
-func TestFilteringRoutesShortcutCharactersToFocusedFilter(t *testing.T) {
+func TestPostFilteringRoutesShortcutCharactersToFocusedFilter(t *testing.T) {
 	for _, tc := range []struct {
-		pane string
 		text string
 		code rune
 	}{
-		{pane: "feeds", text: "a", code: 'a'},
-		{pane: "feeds", text: "P", code: 'P'},
-		{pane: "feeds", text: "q", code: 'q'},
-		{pane: "posts", text: "a", code: 'a'},
-		{pane: "posts", text: "P", code: 'P'},
-		{pane: "posts", text: "q", code: 'q'},
+		{text: "a", code: 'a'},
+		{text: "P", code: 'P'},
+		{text: "q", code: 'q'},
 	} {
-		t.Run(tc.pane+"/"+tc.text, func(t *testing.T) {
+		t.Run(tc.text, func(t *testing.T) {
 			m := testModel()
-			if tc.pane == "posts" {
-				m = updateModel(m, press("tab", tea.KeyTab))
-			}
+			m = updateModel(m, press("tab", tea.KeyTab))
 			m = updateModel(m, press("/", '/'))
 			pane := m.activePane()
 			if got := pane.list.FilterState(); got != list.Filtering {
-				t.Fatalf("%s list did not enter filtering: state %v", tc.pane, got)
+				t.Fatalf("posts list did not enter filtering: state %v", got)
 			}
 			paginationBefore := pane.list.ShowPagination()
 			m = updateModel(m, press(tc.text, tc.code))
@@ -167,7 +177,7 @@ func TestPaginationToggleAffectsOnlyFocusedPane(t *testing.T) {
 	postsBefore := m.posts.list.ShowPagination()
 	m = updateModel(m, press("P", 'P'))
 
-	if m.feeds.list.ShowPagination() == feedsBefore {
+	if m.showFeedPagination {
 		t.Fatal("focused feeds pane pagination was not toggled")
 	}
 	if m.posts.list.ShowPagination() != postsBefore {
@@ -175,10 +185,10 @@ func TestPaginationToggleAffectsOnlyFocusedPane(t *testing.T) {
 	}
 
 	m = updateModel(m, press("tab", tea.KeyTab))
-	feedsBefore = m.feeds.list.ShowPagination()
+	feedsBefore = m.showFeedPagination
 	postsBefore = m.posts.list.ShowPagination()
 	m = updateModel(m, press("P", 'P'))
-	if m.feeds.list.ShowPagination() != feedsBefore {
+	if m.showFeedPagination != feedsBefore {
 		t.Fatal("inactive feeds pane pagination was toggled")
 	}
 	if m.posts.list.ShowPagination() == postsBefore {
@@ -224,7 +234,7 @@ func TestPaneSwitchKeyIsConsumedByRootModel(t *testing.T) {
 }
 
 func TestPaneCommandsTagAsyncResults(t *testing.T) {
-	pane := initialFeedsModel(newStyles(false))
+	pane := initialPostsModel(newStyles(false))
 	cmd := pane.Update(press("/", '/'))
 	if cmd == nil {
 		t.Fatal("starting the filter produced no command")
@@ -235,8 +245,8 @@ func TestPaneCommandsTagAsyncResults(t *testing.T) {
 	if !ok {
 		t.Fatalf("pane command returned %T, want paneMessage", result)
 	}
-	if msg.pane != focusFeeds {
-		t.Fatalf("async result pane = %v, want feeds", msg.pane)
+	if msg.pane != focusPosts {
+		t.Fatalf("async result pane = %v, want posts", msg.pane)
 	}
 }
 
@@ -253,7 +263,8 @@ func TestPaneCommandsPreserveBubbleTeaControlMessages(t *testing.T) {
 
 func TestAsyncListResultOnlyUpdatesItsOriginatingPane(t *testing.T) {
 	m := testModel()
-	m = updateModel(m, press("/", '/'))
+	feeds, _ := m.feeds.list.Update(press("/", '/'))
+	m.feeds.list = feeds
 	posts, _ := m.posts.list.Update(press("/", '/'))
 	m.posts.list = posts
 	postsVisible := len(m.posts.list.VisibleItems())

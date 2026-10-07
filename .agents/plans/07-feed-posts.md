@@ -1,6 +1,7 @@
 # Step 7 — Fetch feeds and display their posts
 
-Status: in progress.
+Status: implemented; persisted posts load asynchronously, explicit refresh updates
+the open feed, and Atom/RSS refresh-and-reopen workflows pass.
 Roadmap: [Step 7](roadmap.md#7-fetch-feeds-and-display-their-posts).
 
 ## Objective
@@ -109,6 +110,22 @@ the required checks; commits still require explicit authorization.
 - Stale async responses cannot overwrite a different open feed.
 - Post list operations survive database reopen and use descending ID order.
 - Full tests, vet, compile check, applicable SQL generation, and diff checks pass.
+
+## Verification completed
+
+- Handler tests cover feed isolation, descending ID order, empty results, missing
+  database configuration, and canceled contexts.
+- UI tests cover async open, feed cursor independence, stale results, selected-feed
+  targeting from both panes, duplicate-refresh suppression, progress/completion and
+  error states, refresh/read-specific retries, cached content, post selection, and
+  filter retention.
+- A temporary-SQLite workflow test uses local Atom and RSS HTTP servers to verify
+  empty state, refresh/upsert/deduplication, loading updated entries, and database
+  reopen persistence.
+- A pseudo-terminal smoke check verified the application starts, renders, and
+  exits cleanly; key routing, retries, and feed workflows are covered by UI tests.
+- README keybindings and usage text document the implemented workflow.
+- Full test, vet, network-free compile, and diff checks passed.
 
 ## Verification before each authorized commit
 

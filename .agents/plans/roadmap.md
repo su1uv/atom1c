@@ -76,8 +76,9 @@
 - After a successful refresh, reload posts if that feed is open; distinguish a
   failed refresh from a failed post reload so retry repeats only the failed action.
 - Route operational messages through the UI rather than printing over it.
-- **In progress:** add, explicitly refresh, and open a feed to browse persisted
-  posts. See [implementation plan](07-feed-posts.md).
+- **Done:** add, explicitly refresh, and open a feed to browse persisted posts;
+  these posts remain available after database reopen. See
+  [implementation plan](07-feed-posts.md).
 
 ## Milestone 3 — Version 1.0 reader
 

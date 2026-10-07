@@ -27,7 +27,8 @@ errors without losing an in-progress draft.
 - Bubble Tea commands carry request generations so stale page/search responses
   cannot replace newer UI state. Feed page rows and their matching count are read
   in one transaction.
-- Post-list mocks remain until Step 7 connects feed selection to persisted posts.
+- Step 7 replaces the former post-list mocks with asynchronously loaded persisted
+  posts from the opened feed.
 
 ## Storage and command interfaces
 

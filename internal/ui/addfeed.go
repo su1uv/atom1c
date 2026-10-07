@@ -14,8 +14,6 @@ import (
 var (
 	focusedStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	blurredStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	cursorStyle         = focusedStyle
-	noStyle             = lipgloss.NewStyle()
 	helpStyle           = blurredStyle
 	cursorModeHelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 
@@ -23,12 +21,11 @@ var (
 	blurredButton = fmt.Sprintf("[ %s ]", blurredStyle.Render("Submit"))
 )
 
-func initialAddFeedModel(common *commonModel) addFeedModel {
-
+func initialAddFeedModel(style lipgloss.Style) addFeedModel {
 	m := addFeedModel{
 		inputs:      make([]textinput.Model, 2),
-		common:      common,
 		modalKeyMap: newModalKeyMap(),
+		style:       style,
 	}
 
 	var t textinput.Model
@@ -41,7 +38,7 @@ func initialAddFeedModel(common *commonModel) addFeedModel {
 		s.Focused.Prompt = focusedStyle
 		s.Focused.Text = focusedStyle
 		s.Blurred.Prompt = blurredStyle
-		s.Focused.Text = focusedStyle
+		s.Blurred.Text = blurredStyle
 		t.SetStyles(s)
 		t.SetWidth(30)
 
@@ -59,26 +56,41 @@ func initialAddFeedModel(common *commonModel) addFeedModel {
 }
 
 type addFeedModel struct {
-	common      *commonModel
 	modalKeyMap *modalKeyMap
 	focusIndex  int
 	inputs      []textinput.Model
 	cursorMode  cursor.Mode
+	style       lipgloss.Style
 }
+
+type addFeedAction int
+
+const (
+	addFeedNoAction addFeedAction = iota
+	addFeedClose
+	addFeedSubmit
+)
 
 func (m addFeedModel) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-func (m addFeedModel) Update(msg tea.Msg) (addFeedModel, tea.Cmd) {
-	var cmds []tea.Cmd
+func (m *addFeedModel) open() tea.Cmd {
+	m.focusIndex = 0
+	cmd := m.inputs[0].Focus()
+	for i := 1; i < len(m.inputs); i++ {
+		m.inputs[i].Blur()
+	}
+	return cmd
+}
 
+func (m addFeedModel) Update(msg tea.Msg) (addFeedModel, tea.Cmd, addFeedAction) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.modalKeyMap.close):
-			m.common.isOpenModal = false
-			return m, nil
+			m.blurInputs()
+			return m, nil, addFeedClose
 
 		case key.Matches(msg, m.modalKeyMap.changeCursorMode):
 			m.cursorMode++
@@ -90,15 +102,15 @@ func (m addFeedModel) Update(msg tea.Msg) (addFeedModel, tea.Cmd) {
 				s.Cursor.Blink = m.cursorMode == cursor.CursorBlink
 				m.inputs[i].SetStyles(s)
 			}
-			return m, nil
+			return m, nil, addFeedNoAction
 
 		case key.Matches(msg, m.modalKeyMap.nextInput):
 			s := msg.String()
 
 			if s == "enter" && m.focusIndex == len(m.inputs) {
 				// TODO: Create new feed
-				m.common.isOpenModal = false
-				return m, nil
+				m.blurInputs()
+				return m, nil, addFeedSubmit
 			}
 
 			if s == "up" || s == "shift+tab" {
@@ -113,25 +125,30 @@ func (m addFeedModel) Update(msg tea.Msg) (addFeedModel, tea.Cmd) {
 				m.focusIndex = len(m.inputs)
 			}
 
-			inputsCmds := make([]tea.Cmd, len(m.inputs))
-			for i := 0; i <= len(m.inputs)-1; i++ {
-				if i == m.focusIndex {
-					inputsCmds[i] = m.inputs[i].Focus()
-					continue
-				}
-
-				m.inputs[i].Blur()
-			}
-
-			cmds = append(cmds, inputsCmds...)
-			return m, tea.Batch(cmds...)
+			cmd := m.focusInput()
+			return m, cmd, addFeedNoAction
 		}
 	}
 
-	cmd := m.updateInputs(msg)
-	cmds = append(cmds, cmd)
+	return m, m.updateInputs(msg), addFeedNoAction
+}
 
-	return m, tea.Batch(cmds...)
+func (m *addFeedModel) focusInput() tea.Cmd {
+	var cmd tea.Cmd
+	for i := range m.inputs {
+		if i == m.focusIndex {
+			cmd = m.inputs[i].Focus()
+			continue
+		}
+		m.inputs[i].Blur()
+	}
+	return cmd
+}
+
+func (m *addFeedModel) blurInputs() {
+	for i := range m.inputs {
+		m.inputs[i].Blur()
+	}
 }
 
 func (m *addFeedModel) updateInputs(msg tea.Msg) tea.Cmd {
@@ -171,11 +188,7 @@ func (m addFeedModel) View() tea.View {
 	b.WriteString(cursorModeHelpStyle.Render(m.cursorMode.String()))
 	b.WriteString(helpStyle.Render(" (ctrl+r to change style)"))
 
-	if !m.common.isOpenModal {
-		b.WriteRune('\n')
-	}
-
-	v := tea.NewView(m.common.styles.modal.Render(b.String()))
+	v := tea.NewView(m.style.Render(b.String()))
 	v.Cursor = c
 	return v
 }

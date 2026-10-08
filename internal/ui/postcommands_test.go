@@ -325,11 +325,28 @@ func TestRefreshAndReadWorkflowPersistsAtomAndRSSPosts(t *testing.T) {
 			if got := m.posts.list.Items()[0].(item).name; got != "Second" {
 				t.Fatalf("initial newest post = %q, want Second", got)
 			}
+			m.posts.list.Select(1)
+			m = openReader(t, m)
+			if !strings.Contains(m.View().Content, "Original") || !strings.Contains(m.View().Content, "first body") || !strings.Contains(m.View().Content, "Source: "+tc.name) {
+				t.Fatalf("persisted article view = %q", m.View().Content)
+			}
+			m = updateModel(m, press("esc", tea.KeyEscape))
 
 			mu.Lock()
 			body = tc.body(tc.updated, true)
 			mu.Unlock()
-			m = refreshAndReload(t, m)
+			m, refreshCmd := applyMessage(m, press("R", 'R'))
+			m = openReader(t, m)
+			m = runUICommands(t, m, refreshCmd)
+			if !strings.Contains(m.reader.viewport.GetContent(), "Original") {
+				t.Fatal("refresh disturbed persisted article snapshot")
+			}
+			m = updateModel(m, press("esc", tea.KeyEscape))
+			m = openReader(t, m)
+			if !strings.Contains(m.reader.viewport.GetContent(), tc.updated) {
+				t.Fatal("reopening article did not show persisted update")
+			}
+			m = updateModel(m, press("esc", tea.KeyEscape))
 			if got := len(m.posts.list.Items()); got != 3 {
 				t.Fatalf("updated post count = %d, want 3 without duplicates", got)
 			}
@@ -358,6 +375,11 @@ func TestRefreshAndReadWorkflowPersistsAtomAndRSSPosts(t *testing.T) {
 			restarted, _ = applyMessage(restarted, runCommand(t, cmd))
 			if len(restarted.posts.list.Items()) != 3 || restarted.posts.list.Items()[0].(item).name != "Third" {
 				t.Fatalf("posts after reopening database = %#v", restarted.posts.list.Items())
+			}
+			restarted.posts.list.Select(2)
+			restarted = openReader(t, restarted)
+			if !strings.Contains(restarted.View().Content, tc.updated) || !strings.Contains(restarted.View().Content, "first body") {
+				t.Fatalf("article after database reopen = %q", restarted.View().Content)
 			}
 		})
 	}

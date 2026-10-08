@@ -14,7 +14,7 @@ It's a learning project. I'm using it to get properly comfortable with the Charm
 
 ## Quick Start
 
-Requires Go 1.26+.
+Requires Go 1.26.5 or newer.
 
 ```sh
 git clone https://github.com/su1uv/atom1c.git
@@ -39,6 +39,7 @@ Main view:
 | `/` | search all feeds by name (case-insensitive substring) |
 | `tab` | open the selected feed and load its persisted posts |
 | `shift+tab` | back to feeds |
+| `enter` (posts pane) | read the selected post |
 | `P` | toggle the pagination indicator for the focused pane |
 | `R` | refresh the selected feed (or the feed open in the posts pane) |
 | `r` | retry a failed database read or feed refresh |
@@ -61,6 +62,30 @@ left/right to change pages; each page change selects its first item. Post pages
 fit the pane height, with their page indicator in the header so additional posts
 do not expand the container. `P` hides or shows that indicator without resizing
 the pane. `/` in the posts pane filters titles across the loaded feed's posts.
+
+Article reader:
+
+| key | action |
+| --- | --- |
+| `j` / `k` (or down / up) | scroll one line |
+| `PgDown` / `PgUp` | scroll a page |
+| `Home` / `End` | jump to beginning / end |
+| `esc` | return to posts, preserving selection, page, and filter |
+| `q` / `ctrl+c` | quit the application |
+
+The full-screen reader displays the saved title, feed name, publication date,
+link, and feed-provided content. Publication times display in UTC; unparsed dates
+display as supplied by the feed, and missing dates display as `Unknown`.
+HTML/XHTML headings, lists, quotes, code, and links are rendered for the terminal;
+images appear as text labels. Plain text stays literal. Empty content and
+unsupported content types show notices. Websites and images are not fetched.
+
+Content reflows when the terminal width changes, preserving relative reading
+position where possible. Returning applies the current terminal dimensions to
+the lists. An already-running refresh updates the posts behind the reader, while
+the open article remains a stable snapshot; reopen it to see updated content.
+List shortcuts are inactive while reading. Unusually deep markup is simplified,
+and oversized rendered output is capped with a notice.
 
 Add feed modal:
 

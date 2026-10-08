@@ -16,6 +16,10 @@ import (
 // renderArticle hides content-kind handling, HTML parsing, metadata formatting,
 // styling and terminal-cell wrapping behind one deterministic interface.
 func renderArticle(article articleSnapshot, width int) string {
+	return wrapArticleDocument(renderArticleDocument(article), width)
+}
+
+func renderArticleDocument(article articleSnapshot) string {
 	p := article.post
 	body := ""
 	switch p.ContentKind {
@@ -42,7 +46,10 @@ func renderArticle(article articleSnapshot, width int) string {
 		body = "No feed-provided content"
 	}
 	title := styleLines(lipgloss.NewStyle().Bold(true), terminalText(p.Title))
-	doc := title + "\nSource: " + terminalText(article.source) + "\nDate: " + articleDate(article) + "\nLink: " + terminalText(p.Link) + "\n\n" + body
+	return title + "\nSource: " + terminalText(article.source) + "\nDate: " + articleDate(article) + "\nLink: " + terminalText(p.Link) + "\n\n" + body
+}
+
+func wrapArticleDocument(doc string, width int) string {
 	width = max(width, 1)
 	lines := strings.Split(ansi.Wrap(doc, width, ""), "\n")
 	for i, line := range lines {

@@ -41,6 +41,7 @@ func newModel(s *internal.State) tea.Model {
 		refreshRequests:    make(map[int64]uint64),
 		refreshErrors:      make(map[int64]string),
 		refreshCompleted:   make(map[int64]bool),
+		articleRenderer:    &articleRenderer{build: renderArticleDocument},
 	}
 }
 
@@ -107,6 +108,10 @@ type model struct {
 	refreshCompleted map[int64]bool
 	refreshRequest   uint64
 	lastRefreshFeed  database.Feed
+	readerOpen       bool
+	reader           articleReader
+	readerRequest    uint64
+	articleRenderer  *articleRenderer
 }
 
 func (m model) Init() tea.Cmd {
@@ -118,6 +123,8 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case articleRenderResult:
+		return m.updateArticleRenderResult(msg)
 	case feedPageResult:
 		return m.updateFeedPageResult(msg)
 	case postPageResult:
@@ -145,6 +152,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		if m.readerOpen {
+			return m, m.resizeReader(msg.Width, msg.Height)
+		}
 		m.help.SetWidth(max(msg.Width-m.styles.app.GetHorizontalFrameSize(), 1))
 		oldPageSize := m.feedPageSize
 		absoluteIndex := m.feedPage*max(oldPageSize, 1) + m.feedCursor
@@ -167,6 +177,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
+		if m.readerOpen {
+			return m.updateReaderKey(msg)
+		}
 		if m.modalOpen {
 			return m.updateModal(msg)
 		}
@@ -181,6 +194,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch {
+		case m.focus == focusPosts && key.Matches(msg, m.keys.openArticle):
+			return m, m.openArticle()
 		case m.focus == focusFeeds && key.Matches(msg, m.keys.filter):
 			m.feedSearching = true
 			return m, m.feedSearch.Focus()
@@ -307,6 +322,9 @@ func (m *model) updateActivePane(msg tea.Msg) tea.Cmd {
 }
 
 func (m model) View() tea.View {
+	if m.readerOpen {
+		return m.readerView()
+	}
 	help := m.help.ShortHelpView([]key.Binding{
 		m.keys.addFeed,
 		m.keys.retry,
@@ -318,6 +336,7 @@ func (m model) View() tea.View {
 		m.keys.filter,
 		m.keys.selectItem,
 		m.keys.deselectItem,
+		m.keys.openArticle,
 		m.keys.togglePagination,
 		m.keys.quit,
 	})

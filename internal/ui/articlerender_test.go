@@ -48,6 +48,11 @@ func TestRenderArticleContent(t *testing.T) {
 func TestRenderHTMLStructureAndLinearSize(t *testing.T) {
 	for _, tt := range []struct{ content, want string }{
 		{"<p>A <em> B </em> C</p>", "A B C"},
+		{"<p>A<em> B</em></p>", "A B"},
+		{"<p>A <img alt=\"pic\"> B</p>", "A [Image: pic] B"},
+		{"<p>A&#12;B</p>", "A B"},
+		{"<pre><code>  x\n  y</code></pre>", "  x\n  y"},
+		{"<p>Before</p><pre><code>  x\n  y</code></pre>", "Before\n\n  x\n  y"},
 		{"<p>A</p>\n<p>B</p>", "A\n\nB"},
 		{"<ul><li><p>One</p><p>More</p></li><li>Two</li></ul>", "• One\n  \n  More\n• Two"},
 		{"<ul><li>One<ul><li>Nested</li></ul></li></ul>", "• One\n  \n  • Nested"},
@@ -58,7 +63,7 @@ func TestRenderHTMLStructureAndLinearSize(t *testing.T) {
 		}
 		var out htmlText
 		out.children(root, false, 0)
-		if got := strings.TrimSpace(ansi.Strip(out.String())); got != tt.want {
+		if got := strings.Trim(ansi.Strip(out.String()), "\n"); got != tt.want {
 			t.Errorf("%s: got %q want %q", tt.content, got, tt.want)
 		}
 	}
@@ -70,6 +75,13 @@ func TestRenderHTMLStructureAndLinearSize(t *testing.T) {
 		if len(doc) > 20*len(content) {
 			t.Fatalf("rendering grew from %d to %d bytes", len(content), len(doc))
 		}
+	}
+}
+
+func TestArticleStartsWithIndentedCode(t *testing.T) {
+	doc := renderArticle(articleSnapshot{post: database.Post{ContentKind: "html", Content: "<pre><code>  x\n  y</code></pre>"}}, 80)
+	if !strings.HasSuffix(ansi.Strip(doc), "\n\n  x\n  y") {
+		t.Fatalf("code indentation lost: %q", doc)
 	}
 }
 

@@ -28,7 +28,7 @@ func renderArticle(article articleSnapshot, width int) string {
 		} else {
 			var out htmlText
 			out.children(root, false, 0)
-			body = strings.TrimSpace(out.String())
+			body = strings.Trim(out.String(), "\n")
 			if out.Len() >= maxRenderedBytes {
 				body += "\n[Content truncated for terminal rendering]"
 			}
@@ -120,6 +120,9 @@ func articleDate(article articleSnapshot) string {
 func terminalText(s string) string {
 	s = ansi.Strip(s)
 	return strings.Map(func(r rune) rune {
+		if r == '\f' {
+			return ' '
+		}
 		if r == '\n' || r == '\t' {
 			return r
 		}
@@ -135,6 +138,7 @@ const maxRenderedBytes = 20 << 20
 type htmlText struct {
 	strings.Builder
 	pendingSpace bool
+	leadingSpace bool
 }
 
 func (out *htmlText) WriteString(s string) (int, error) {
@@ -201,6 +205,9 @@ func (out *htmlText) node(n *html.Node, pre bool, depth int) {
 				if out.pendingSpace && out.Len() > 0 && !strings.HasSuffix(out.String(), "\n") {
 					out.WriteByte(' ')
 				}
+				if out.pendingSpace && out.Len() == 0 {
+					out.leadingSpace = true
+				}
 				out.pendingSpace = false
 				out.WriteString(string(r))
 			}
@@ -230,6 +237,10 @@ func (out *htmlText) node(n *html.Node, pre bool, depth int) {
 		if label == "" {
 			label = "Image"
 		}
+		if out.pendingSpace && out.Len() > 0 && !strings.HasSuffix(out.String(), "\n") {
+			out.WriteByte(' ')
+		}
+		out.pendingSpace = false
 		out.WriteString("[Image: " + label + "]")
 	case "a":
 		out.children(n, pre, depth)
@@ -297,11 +308,11 @@ func (out *htmlText) node(n *html.Node, pre bool, depth int) {
 			style = style.Foreground(lipgloss.Color("#A8BFA0"))
 		}
 		value := text.String()
-		if !block && out.pendingSpace && value != "" && out.Len() > 0 && !strings.HasSuffix(out.String(), "\n") {
+		if !pre && !block && (out.pendingSpace || text.leadingSpace) && value != "" && out.Len() > 0 && !strings.HasSuffix(out.String(), "\n") {
 			out.WriteByte(' ')
 		}
-		if strings.HasPrefix(value, " ") && (out.Len() == 0 || strings.HasSuffix(out.String(), "\n")) {
-			value = strings.TrimLeft(value, " ")
+		if text.leadingSpace && out.Len() == 0 {
+			out.leadingSpace = true
 		}
 		out.WriteString(styleLines(style, value))
 		out.pendingSpace = text.pendingSpace

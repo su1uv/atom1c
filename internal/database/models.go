@@ -8,6 +8,18 @@ import (
 	"database/sql"
 )
 
+type ArticleCache struct {
+	PostID      int64
+	SourceUrl   string
+	FinalUrl    string
+	Markdown    string
+	Title       string
+	Author      string
+	SiteName    string
+	PublishedAt string
+	FetchedAt   string
+}
+
 type Feed struct {
 	ID            int64
 	CreatedAt     string

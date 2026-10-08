@@ -100,6 +100,7 @@ type model struct {
 	postErrorAction  postErrorAction
 	postFailedFeed   database.Feed
 	postRequest      uint64
+	postRecords      map[int64]database.Post
 	refreshing       map[int64]bool
 	refreshRequests  map[int64]uint64
 	refreshErrors    map[int64]string

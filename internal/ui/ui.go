@@ -145,7 +145,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		oldPageSize := m.feedPageSize
 		absoluteIndex := m.feedPage*max(oldPageSize, 1) + m.feedCursor
 		m.feeds.setSize(msg.Width, max(msg.Height-2, 0))
-		m.posts.setSize(msg.Width, msg.Height)
+		m.posts.setSize(msg.Width, max(msg.Height-2, 0))
 		m.feedPageSize = max(m.feeds.list.Paginator.PerPage, 1)
 		m.feedSearch.SetWidth(max(msg.Width/2-4, 1))
 		if oldPageSize == 0 {
@@ -308,7 +308,7 @@ func (m model) View() tea.View {
 
 	feedsContent := m.feedView()
 	postsContent := m.postsView()
-	content := m.styles.app.Render(lipgloss.JoinHorizontal(lipgloss.Top, feedsContent, postsContent) + "\n\n" + help)
+	content := m.styles.app.Render(lipgloss.JoinHorizontal(lipgloss.Top, feedsContent, postsContent) + "\n" + help)
 	var cursor *tea.Cursor
 
 	if m.modalOpen {
@@ -372,26 +372,32 @@ func (m model) feedView() string {
 	if m.feedQuery != "" {
 		status = "Search " + fmt.Sprintf("%q", m.feedQuery) + " • " + status
 	}
-	status = lipgloss.NewStyle().MaxWidth(max(m.width/2-4, 1)).Render(status)
-	parts := []string{m.feedSearch.View(), status}
+	refreshStatus := ""
 	if selected, ok := m.feeds.list.SelectedItem().(item); ok && m.refreshing[selected.id] {
-		parts = append(parts, "Refreshing "+selected.name+"…")
+		refreshStatus = "Refreshing " + selected.name + "…"
 	} else if selected, ok := m.feeds.list.SelectedItem().(item); ok && m.refreshErrors[selected.id] != "" {
-		parts = append(parts, "Refresh failed: "+m.refreshErrors[selected.id]+" (r to retry)")
+		refreshStatus = "Refresh failed: " + m.refreshErrors[selected.id] + " (r to retry)"
 	} else if selected, ok := m.feeds.list.SelectedItem().(item); ok && m.refreshCompleted[selected.id] {
-		parts = append(parts, "Refreshed "+selected.name)
+		refreshStatus = "Refreshed " + selected.name
 	} else if m.lastRefreshFeed.ID != 0 && m.refreshing[m.lastRefreshFeed.ID] {
-		parts = append(parts, "Refreshing "+m.lastRefreshFeed.Name+"…")
+		refreshStatus = "Refreshing " + m.lastRefreshFeed.Name + "…"
 	} else if m.lastRefreshFeed.ID != 0 && m.refreshErrors[m.lastRefreshFeed.ID] != "" {
-		parts = append(parts, "Refresh failed for "+m.lastRefreshFeed.Name+": "+m.refreshErrors[m.lastRefreshFeed.ID]+" (r to retry)")
+		refreshStatus = "Refresh failed for " + m.lastRefreshFeed.Name + ": " + m.refreshErrors[m.lastRefreshFeed.ID] + " (r to retry)"
 	} else if m.lastRefreshFeed.ID != 0 && m.refreshCompleted[m.lastRefreshFeed.ID] {
-		parts = append(parts, "Refreshed "+m.lastRefreshFeed.Name)
+		refreshStatus = "Refreshed " + m.lastRefreshFeed.Name
 	}
-	parts = append(parts, m.feeds.View().Content)
+	if refreshStatus != "" {
+		status += " • " + refreshStatus
+	}
+	parts := []string{m.feedSearch.View(), m.paneHeader(status), m.feeds.View().Content}
 	return lipgloss.JoinVertical(lipgloss.Left, parts...)
 }
 
 func (m model) postsView() string {
+	feedHeader := "No feed open"
+	if m.openFeedID != 0 {
+		feedHeader = "Feed: " + m.openFeedName
+	}
 	status := "Select a feed and press tab"
 	switch {
 	case m.openFeedID != 0 && m.postLoading:
@@ -408,6 +414,9 @@ func (m model) postsView() string {
 	} else if m.openFeedID != 0 && m.refreshCompleted[m.openFeedID] && !m.postLoading && m.postErr == "" {
 		status += " • refreshed"
 	}
-	status = lipgloss.NewStyle().MaxWidth(max(m.width/2-4, 1)).Render(status)
-	return lipgloss.JoinVertical(lipgloss.Left, status, m.posts.View().Content)
+	return lipgloss.JoinVertical(lipgloss.Left, m.paneHeader(feedHeader), m.paneHeader(status), m.posts.View().Content)
+}
+
+func (m model) paneHeader(text string) string {
+	return lipgloss.NewStyle().MaxWidth(max(m.width/2-4, 1)).MaxHeight(1).Render(text)
 }

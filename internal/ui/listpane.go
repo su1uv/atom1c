@@ -7,10 +7,13 @@ import (
 	"github.com/su1uv/atom1c/internal/database"
 )
 
+const listChromeRows = 3 // Title, status, and pagination.
+
 type listPane struct {
-	list  list.Model
-	style lipgloss.Style
-	id    focusState
+	list     list.Model
+	delegate list.DefaultDelegate
+	style    lipgloss.Style
+	id       focusState
 }
 
 func initialFeedsModel(styles Styles) listPane {
@@ -45,18 +48,25 @@ func newListPane(title string, items []item, styles Styles, id focusState) listP
 		listItems[i] = it
 	}
 
-	l := list.New(listItems, list.NewDefaultDelegate(), 0, 0)
+	delegate := list.NewDefaultDelegate()
+	l := list.New(listItems, delegate, 0, 0)
 	l.Title = title
 	l.Styles.Title = styles.title
 	l.SetShowHelp(false)
 
-	return listPane{list: l, style: styles.list, id: id}
+	return listPane{list: l, delegate: delegate, style: styles.list, id: id}
 }
 
 func (m *listPane) setSize(w, h int) {
 	frameWidth, frameHeight := m.style.GetFrameSize()
 	contentWidth := max((w-frameWidth)/2, 0)
-	m.list.SetSize(contentWidth, max(h-frameHeight-helpHeight, 0))
+	contentHeight := max(h-frameHeight-helpHeight, 0)
+	delegate := m.delegate
+	fullItemHeight := list.NewDefaultDelegate().Height()
+	delegate.ShowDescription = contentHeight >= listChromeRows+fullItemHeight+delegate.Spacing()
+	m.delegate = delegate
+	m.list.SetDelegate(delegate)
+	m.list.SetSize(contentWidth, contentHeight)
 	m.style = m.style.Width(contentWidth)
 }
 

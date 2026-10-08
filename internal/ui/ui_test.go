@@ -8,7 +8,9 @@ import (
 	"charm.land/bubbles/v2/cursor"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/su1uv/atom1c/internal"
+	"github.com/su1uv/atom1c/internal/database"
 )
 
 func testModel() model {
@@ -268,6 +270,75 @@ func TestPaneCommandsTagAsyncResults(t *testing.T) {
 	if msg.pane != focusPosts {
 		t.Fatalf("async result pane = %v, want posts", msg.pane)
 	}
+}
+
+func TestPostPaneAndHelpFitWithinTerminalHeight(t *testing.T) {
+	posts := make([]database.Post, 100)
+	for i := range posts {
+		posts[i] = database.Post{ID: int64(i + 1), Title: fmt.Sprintf("Post %03d", i), Link: fmt.Sprintf("https://example.test/posts/%03d", i)}
+	}
+	for _, terminalHeight := range []int{12, 16, 20, 24, 32} {
+		t.Run(fmt.Sprintf("height_%d", terminalHeight), func(t *testing.T) {
+			m := testModel()
+			_ = m.posts.list.SetItems(nil)
+			m = updateModel(m, tea.WindowSizeMsg{Width: 100, Height: terminalHeight})
+			m = updateModel(m, press("tab", tea.KeyTab))
+			m = updateModel(m, postPageResult{request: m.postRequest, feedID: m.openFeedID, posts: posts})
+			if m.posts.list.Paginator.TotalPages < 2 {
+				t.Fatal("test setup did not create a paginated post list")
+			}
+			view := m.View().Content
+
+			if got := lipgloss.Height(view); got > terminalHeight {
+				t.Fatalf("rendered view height = %d rows, exceeds terminal height %d", got, terminalHeight)
+			}
+			if !strings.Contains(view, "refresh feed") {
+				t.Fatalf("help commands missing from rendered view: %q", view)
+			}
+		})
+	}
+}
+
+func TestFeedAndPostListsStartAtSameVerticalPosition(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		refreshing    bool
+		refreshFailed bool
+	}{
+		{name: "idle"},
+		{name: "refreshing", refreshing: true},
+		{name: "refresh failed", refreshFailed: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := testModel()
+			m = updateModel(m, tea.WindowSizeMsg{Width: 100, Height: 24})
+			if tc.refreshing {
+				m.refreshing[1] = true
+			}
+			if tc.refreshFailed {
+				m.refreshErrors[1] = "could not resolve the remote feed host"
+			}
+
+			feedTop := listTopRow(m.feedView())
+			postsView := m.postsView()
+			postsTop := listTopRow(postsView)
+			if feedTop != postsTop {
+				t.Fatalf("feed list begins at row %d, posts list at row %d", feedTop, postsTop)
+			}
+			if feedHeight, postHeight := lipgloss.Height(m.feedView()), lipgloss.Height(postsView); feedHeight != postHeight {
+				t.Fatalf("feed pane height = %d rows, posts pane height = %d rows", feedHeight, postHeight)
+			}
+		})
+	}
+}
+
+func listTopRow(view string) int {
+	for i, line := range strings.Split(view, "\n") {
+		if strings.Contains(line, "╭") {
+			return i
+		}
+	}
+	return -1
 }
 
 func TestPaneCommandsPreserveBubbleTeaControlMessages(t *testing.T) {

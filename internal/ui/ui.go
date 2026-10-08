@@ -142,10 +142,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.help.SetWidth(max(msg.Width-m.styles.app.GetHorizontalFrameSize(), 1))
 		oldPageSize := m.feedPageSize
 		absoluteIndex := m.feedPage*max(oldPageSize, 1) + m.feedCursor
-		m.feeds.setSize(msg.Width, max(msg.Height-2, 0))
-		m.posts.setSize(msg.Width, max(msg.Height-2, 0))
+		paneWidth := max(msg.Width-m.styles.app.GetHorizontalFrameSize(), 0)
+		m.feeds.setSize(paneWidth, max(msg.Height-2, 0))
+		m.posts.setSize(paneWidth, max(msg.Height-2, 0))
 		m.feedPageSize = max(m.feeds.list.Paginator.PerPage, 1)
 		m.feedSearch.SetWidth(max(msg.Width/2-4, 1))
 		if oldPageSize == 0 {
@@ -305,6 +307,9 @@ func (m model) View() tea.View {
 		m.keys.togglePagination,
 		m.keys.quit,
 	})
+	if m.width > 0 {
+		help = lipgloss.NewStyle().MaxWidth(max(m.width-m.styles.app.GetHorizontalFrameSize(), 1)).MaxHeight(1).Render(help)
+	}
 
 	feedsContent := m.feedView()
 	postsContent := m.postsView()

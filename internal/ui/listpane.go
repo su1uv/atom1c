@@ -59,7 +59,7 @@ func newListPane(title string, items []item, styles Styles, id focusState) listP
 
 func (m *listPane) setSize(w, h int) {
 	frameWidth, frameHeight := m.style.GetFrameSize()
-	contentWidth := max((w-frameWidth)/2, 0)
+	contentWidth := max(w/2-frameWidth, 0)
 	contentHeight := max(h-frameHeight-helpHeight, 0)
 	delegate := m.delegate
 	fullItemHeight := list.NewDefaultDelegate().Height()
@@ -67,7 +67,8 @@ func (m *listPane) setSize(w, h int) {
 	m.delegate = delegate
 	m.list.SetDelegate(delegate)
 	m.list.SetSize(contentWidth, contentHeight)
-	m.style = m.style.Width(contentWidth)
+	// Lipgloss v2 Width includes the border. The list's content width does not.
+	m.style = m.style.Width(contentWidth + frameWidth)
 }
 
 func (m *listPane) Update(msg tea.Msg) tea.Cmd {

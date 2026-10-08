@@ -47,6 +47,8 @@
 
 ## Implementation guidance
 - Use Charm v2 APIs (`charm.land/...`, `tea.KeyPressMsg`, `View() tea.View`).
+- Lipgloss v2 style dimensions include borders/padding; budget list content
+  separately. Verify terminal width and height with long text and page changes.
 - SQL sources live in `sql/schema` and `sql/queries`; regenerate with `sqlc generate`.
   Do not hand-edit generated `internal/database` files. Review generated diffs
   before regeneration. Before the first deployment, update existing migrations

@@ -143,9 +143,10 @@ private to the package's tests.
 
 ## Commit and publication
 
-Treat the shared module, RSS support, date normalization, tests, and associated
-record updates as one atomic roadmap step. Split the step before implementation if
-it becomes too large for one independently verified change.
+The original commit guidance grouped the complete roadmap step as one change; that
+guidance is superseded. A plan is not a commit boundary: split future work into
+small, independently reviewable and verified changes as required by
+[AGENTS.md](../../AGENTS.md).
 
 Suggested implementation commit: `[feat]: normalize Atom and RSS feeds`.
 

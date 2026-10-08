@@ -1,16 +1,20 @@
 package ui
 
 import (
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/su1uv/atom1c/internal/database"
 )
 
+const listChromeRows = 3 // Title, status, and pagination.
+
 type listPane struct {
-	list  list.Model
-	style lipgloss.Style
-	id    focusState
+	list     list.Model
+	delegate list.DefaultDelegate
+	style    lipgloss.Style
+	id       focusState
 }
 
 func initialFeedsModel(styles Styles) listPane {
@@ -20,7 +24,9 @@ func initialFeedsModel(styles Styles) listPane {
 }
 
 func initialPostsModel(styles Styles) listPane {
-	return newListPane("Posts", postsMock, styles, focusPosts)
+	pane := newListPane("Posts", nil, styles, focusPosts)
+	pane.list.SetShowPagination(false)
+	return pane
 }
 
 func feedItems(feeds []database.Feed) []list.Item {
@@ -31,28 +37,56 @@ func feedItems(feeds []database.Feed) []list.Item {
 	return items
 }
 
+func postItems(posts []database.Post) []list.Item {
+	items := make([]list.Item, len(posts))
+	for i, post := range posts {
+		items[i] = item{id: post.ID, name: post.Title, url: post.Link}
+	}
+	return items
+}
+
 func newListPane(title string, items []item, styles Styles, id focusState) listPane {
 	listItems := make([]list.Item, len(items))
 	for i, it := range items {
 		listItems[i] = it
 	}
 
-	l := list.New(listItems, list.NewDefaultDelegate(), 0, 0)
+	delegate := list.NewDefaultDelegate()
+	l := list.New(listItems, delegate, 0, 0)
 	l.Title = title
 	l.Styles.Title = styles.title
 	l.SetShowHelp(false)
 
-	return listPane{list: l, style: styles.list, id: id}
+	return listPane{list: l, delegate: delegate, style: styles.list, id: id}
 }
 
 func (m *listPane) setSize(w, h int) {
 	frameWidth, frameHeight := m.style.GetFrameSize()
-	contentWidth := max((w-frameWidth)/2, 0)
-	m.list.SetSize(contentWidth, max(h-frameHeight-helpHeight, 0))
-	m.style = m.style.Width(contentWidth)
+	contentWidth := max(w/2-frameWidth, 0)
+	contentHeight := max(h-frameHeight-helpHeight, 0)
+	delegate := m.delegate
+	fullItemHeight := list.NewDefaultDelegate().Height()
+	delegate.ShowDescription = contentHeight >= listChromeRows+fullItemHeight+delegate.Spacing()
+	m.delegate = delegate
+	m.list.SetDelegate(delegate)
+	m.list.SetSize(contentWidth, contentHeight)
+	// Lipgloss v2 Width includes the border. The list's content width does not.
+	m.style = m.style.Width(contentWidth + frameWidth)
 }
 
 func (m *listPane) Update(msg tea.Msg) tea.Cmd {
+	if msg, ok := msg.(tea.KeyPressMsg); ok && m.id == focusPosts && m.list.FilterState() != list.Filtering && m.list.Height() > 0 {
+		// Keep cursor navigation inside this page, just like the feed pane.
+		// Page changes are owned by the explicit previous/next-page bindings.
+		cursor := m.list.Cursor()
+		itemsOnPage := m.list.Paginator.ItemsOnPage(len(m.list.VisibleItems()))
+		if key.Matches(msg, m.list.KeyMap.CursorUp) && cursor == 0 {
+			return nil
+		}
+		if key.Matches(msg, m.list.KeyMap.CursorDown) && cursor >= itemsOnPage-1 {
+			return nil
+		}
+	}
 	updated, cmd := m.list.Update(msg)
 	m.list = updated
 	return tagPaneCommand(cmd, m.id)

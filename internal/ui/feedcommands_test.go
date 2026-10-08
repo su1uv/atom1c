@@ -20,12 +20,18 @@ import (
 )
 
 type memoryFeedStore struct {
-	feeds       []database.Feed
-	addErr      error
-	getPageErr  error
-	positionErr error
-	addCalls    int
-	pageCalls   []handlers.FeedPageParams
+	feeds        []database.Feed
+	posts        map[int64][]database.Post
+	addErr       error
+	getPageErr   error
+	positionErr  error
+	postsErr     error
+	refreshErr   error
+	refreshHook  func(database.Feed)
+	addCalls     int
+	pageCalls    []handlers.FeedPageParams
+	postCalls    []int64
+	refreshCalls []database.Feed
 }
 
 func (s *memoryFeedStore) GetPage(_ context.Context, params handlers.FeedPageParams) (handlers.FeedPage, error) {
@@ -79,6 +85,25 @@ func (s *memoryFeedStore) Position(_ context.Context, id int64, search string) (
 		position++
 	}
 	return 0, errors.New("feed not found")
+}
+
+func (s *memoryFeedStore) GetPosts(_ context.Context, feedID int64) ([]database.Post, error) {
+	s.postCalls = append(s.postCalls, feedID)
+	if s.postsErr != nil {
+		return nil, s.postsErr
+	}
+	return append([]database.Post(nil), s.posts[feedID]...), nil
+}
+
+func (s *memoryFeedStore) Refresh(_ context.Context, feed database.Feed) error {
+	s.refreshCalls = append(s.refreshCalls, feed)
+	if s.refreshErr != nil {
+		return s.refreshErr
+	}
+	if s.refreshHook != nil {
+		s.refreshHook(feed)
+	}
+	return nil
 }
 
 func modelWithFeedStore(store feedStore) model {

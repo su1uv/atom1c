@@ -35,18 +35,32 @@ Main view:
 | --- | --- |
 | `a` | add a feed |
 | `j` / `k` (or up / down) | move within the current list page |
-| `h` / `l` (or left / right) | previous / next page when the feeds pane is focused |
+| `h` / `l` (or left / right) | previous / next page in the focused pane |
 | `/` | search all feeds by name (case-insensitive substring) |
-| `tab` | open the selected feed's posts |
+| `tab` | open the selected feed and load its persisted posts |
 | `shift+tab` | back to feeds |
 | `P` | toggle the pagination indicator for the focused pane |
-| `r` | retry a failed feed load |
+| `R` | refresh the selected feed (or the feed open in the posts pane) |
+| `r` | retry a failed database read or feed refresh |
 | `q` / `ctrl+c` | quit |
 
 Feed search updates as you type. Press `enter` to stop editing, `esc` to leave
 search editing, and backspace to change or clear the query. Feed pages fit the
 current pane size; the list is loaded from SQLite rather than limited to a fixed
 number of feeds.
+
+Open a feed with `tab` to load its saved posts. Moving the feed cursor does not
+change which feed is open in the posts pane. Use `R` to fetch and store the
+selected/open feed's latest entries; a successful refresh reloads the open posts.
+Database reads and refreshes run asynchronously. Empty feeds, loading, and
+recoverable errors are shown in the relevant pane; `r` retries the failed
+operation.
+
+Both lists stop up/down navigation at the current page's edges. Use `h`/`l` or
+left/right to change pages; each page change selects its first item. Post pages
+fit the pane height, with their page indicator in the header so additional posts
+do not expand the container. `P` hides or shows that indicator without resizing
+the pane. `/` in the posts pane filters titles across the loaded feed's posts.
 
 Add feed modal:
 

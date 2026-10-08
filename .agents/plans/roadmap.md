@@ -92,9 +92,21 @@
   navigation. Open articles remain stable during refresh. See
   [implementation plan](08-article-view.md).
 
+### 9. Retrieve and cache full website articles
+- Automatically fetch a post's linked public HTML page when its full article is
+  not cached; show the feed preview while retrieval/extraction runs.
+- Extract the main readable content, convert it to Markdown, and render it with
+  the reusable independent `reader` and `reader/view` packages.
+- Persist extracted Markdown and metadata by post and source URL; reuse offline,
+  reload explicitly, and preserve the last successful copy after failures.
+- Add reader-specific reload/retry/feed-preview controls and safe async handling.
+- **Done:** public HTML articles display in the styled Markdown reader, survive
+  database reopen, and fall back to feed content when retrieval fails. JavaScript
+  pages are deferred. See [implementation plan](09-full-article-reader.md).
+
 ## Milestone 4 — SSH access
 
-### 9. Add the single-owner SSH server
+### 10. Add the single-owner SSH server
 - Configure the listen address, persistent host keys, and authorized SSH keys.
 - All accepted keys access the same owner's feeds and posts.
 - Connect sessions to the TUI; handle resizing and session cancellation.
@@ -104,7 +116,7 @@
 
 ## Milestone 5 — Automatic refresh
 
-### 10. Add server-level refresh scheduling
+### 11. Add server-level refresh scheduling
 - Refresh independently of connected SSH sessions, at a configurable interval.
 - Isolate individual feed failures and prevent overlapping fetches.
 - Shut down cleanly and let active readers see newly stored posts.
@@ -112,19 +124,19 @@
 
 ## Milestone 6 — Version 1.0 release
 
-### 11. Verify and document the complete workflow
+### 12. Verify and document the complete workflow
 - Verify fresh and existing databases, Atom/RSS ingestion, and deduplication.
 - Exercise reading, SSH reconnects, concurrent sessions, and background refresh.
 - Document self-hosting, startup, authentication, configuration, and keybindings.
 - Remove obsolete mocks and placeholders after replacements are verified.
 - **Done:** someone can follow the README to host and use their own instance.
 
-## Phase 2 — Full-article reader (after 1.0)
+## Deferred full-article capabilities
 
-- Retrieve full articles from their websites.
-- Extract main article content and render it in the terminal reader.
-- Fall back to feed-provided content when retrieval or extraction fails.
-- Define detailed implementation steps and acceptance checks before this phase.
+- JavaScript-rendered sites and browser runtime support.
+- Authenticated/paywalled websites and credential management.
+- Site-specific extraction adapters for pages that general readability extraction
+  cannot handle.
 
 ## Execution rules
 

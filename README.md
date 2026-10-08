@@ -87,6 +87,33 @@ the open article remains a stable snapshot; reopen it to see updated content.
 List shortcuts are inactive while reading. Unusually deep markup is simplified,
 and oversized rendered output is capped with a notice.
 
+The reader first shows a saved extracted article when available. Otherwise it
+shows the feed preview immediately and asynchronously retrieves the linked public
+HTML page. Readable main content is extracted, converted to Markdown, and shown
+in a centered, styled column; headings, nested lists, quotes, emphasis, links,
+and code blocks are preserved. The website's title, author, and publication date
+are used when available, with feed metadata as fallback. `R` explicitly reloads
+the full article, `r` retries a failed retrieval, and `f` toggles between full
+article and feed preview. Website reloads do not happen during feed refresh.
+
+Successful extractions are cached in SQLite as Markdown and are available offline
+after restart. A failed reload keeps the last successful cached article. The
+cache is tied to the post's current link and is removed when its post/feed is
+deleted. Website extraction supports public HTTP(S) HTML pages; it does not run
+JavaScript or sign in to websites. Pages that block requests or cannot be
+extracted remain readable through their feed preview. Fetching rejects local and
+private network destinations to avoid using article links to access host-private
+services.
+
+The reusable [`reader`](reader) and [`reader/view`](reader/view) Go packages own
+article retrieval/extraction, HTML-to-Markdown conversion, terminal Markdown
+rendering, the focused column, scrolling, and responsive layout without importing
+Atom1c application or database packages. Run the standalone reader example with:
+
+```sh
+go run ./examples/reader https://example.com/article
+```
+
 Add feed modal:
 
 | key | action |

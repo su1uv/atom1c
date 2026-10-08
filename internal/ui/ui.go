@@ -11,6 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/su1uv/atom1c/internal"
 	"github.com/su1uv/atom1c/internal/database"
+	"github.com/su1uv/atom1c/reader"
 )
 
 func NewProgram(s *internal.State) *tea.Program {
@@ -21,8 +22,14 @@ func newModel(s *internal.State) tea.Model {
 	styles := newStyles(false)
 	keys := newListKeyMap()
 	var store feedStore
+	var articleStore articleCacheStore
+	var fetcher articleFetcher
 	if s != nil && s.Db != nil && s.SQLDB != nil {
 		store = stateFeedStore{state: s}
+	}
+	if s != nil && s.Db != nil {
+		articleStore = stateArticleCacheStore{state: s}
+		fetcher = reader.NewFetcher(nil)
 	}
 
 	return model{
@@ -42,6 +49,9 @@ func newModel(s *internal.State) tea.Model {
 		refreshErrors:      make(map[int64]string),
 		refreshCompleted:   make(map[int64]bool),
 		articleRenderer:    &articleRenderer{build: renderArticleDocument},
+		articleCache:       articleStore,
+		articleFetcher:     fetcher,
+		darkBackground:     true,
 	}
 }
 
@@ -112,19 +122,27 @@ type model struct {
 	reader           articleReader
 	readerRequest    uint64
 	articleRenderer  *articleRenderer
+	articleCache     articleCacheStore
+	articleFetcher   articleFetcher
+	darkBackground   bool
 }
 
 func (m model) Init() tea.Cmd {
+	commands := []tea.Cmd{func() tea.Msg { return tea.RequestBackgroundColor() }}
 	if m.feedPageSize > 0 && m.feedStore != nil {
-		return m.beginFeedPageLoad()
+		commands = append(commands, m.beginFeedPageLoad())
 	}
-	return nil
+	return tea.Batch(commands...)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case articleRenderResult:
 		return m.updateArticleRenderResult(msg)
+	case articleOpenResult:
+		return m.updateArticleOpenResult(msg)
+	case articleFetchResult:
+		return m.updateArticleFetchResult(msg)
 	case feedPageResult:
 		return m.updateFeedPageResult(msg)
 	case postPageResult:
@@ -173,6 +191,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.beginSavedFeedReload()
 			}
 			return m, m.beginFeedPageLoad()
+		}
+		return m, nil
+	case tea.BackgroundColorMsg:
+		m.darkBackground = msg.IsDark()
+		if m.readerOpen {
+			return m, m.beginArticleRender()
 		}
 		return m, nil
 

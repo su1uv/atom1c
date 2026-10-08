@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/su1uv/atom1c/internal"
 	"github.com/su1uv/atom1c/internal/database"
 	"github.com/su1uv/atom1c/internal/handlers"
@@ -306,6 +307,7 @@ func TestRefreshAndReadWorkflowPersistsAtomAndRSSPosts(t *testing.T) {
 			}
 
 			m := newModel(state).(model)
+			m.articleCache, m.articleFetcher = nil, nil
 			m, cmd := applyMessage(m, tea.WindowSizeMsg{Width: 100, Height: 20})
 			m, _ = applyMessage(m, runCommand(t, cmd))
 			if selected, ok := m.feeds.list.SelectedItem().(item); !ok || selected.id != storedFeed.ID {
@@ -327,7 +329,8 @@ func TestRefreshAndReadWorkflowPersistsAtomAndRSSPosts(t *testing.T) {
 			}
 			m.posts.list.Select(1)
 			m = openReader(t, m)
-			if !strings.Contains(m.View().Content, "Original") || !strings.Contains(m.View().Content, "first body") || !strings.Contains(m.View().Content, "Source: "+tc.name) {
+			plainView := ansi.Strip(m.View().Content)
+			if !strings.Contains(plainView, "Original") || !strings.Contains(plainView, "first body") || !strings.Contains(plainView, "Source: "+tc.name) {
 				t.Fatalf("persisted article view = %q", m.View().Content)
 			}
 			m = updateModel(m, press("esc", tea.KeyEscape))
@@ -343,7 +346,7 @@ func TestRefreshAndReadWorkflowPersistsAtomAndRSSPosts(t *testing.T) {
 			}
 			m = updateModel(m, press("esc", tea.KeyEscape))
 			m = openReader(t, m)
-			if !strings.Contains(m.reader.viewport.GetContent(), tc.updated) {
+			if !strings.Contains(ansi.Strip(m.reader.viewport.GetContent()), tc.updated) {
 				t.Fatal("reopening article did not show persisted update")
 			}
 			m = updateModel(m, press("esc", tea.KeyEscape))
@@ -369,6 +372,7 @@ func TestRefreshAndReadWorkflowPersistsAtomAndRSSPosts(t *testing.T) {
 			reopened := openUIWorkflowDB(t, dbPath)
 			defer reopened.Close()
 			restarted := newModel(&internal.State{Db: database.New(reopened), SQLDB: reopened}).(model)
+			restarted.articleCache, restarted.articleFetcher = nil, nil
 			restarted, cmd = applyMessage(restarted, tea.WindowSizeMsg{Width: 100, Height: 20})
 			restarted, _ = applyMessage(restarted, runCommand(t, cmd))
 			restarted, cmd = applyMessage(restarted, press("tab", tea.KeyTab))
@@ -378,7 +382,8 @@ func TestRefreshAndReadWorkflowPersistsAtomAndRSSPosts(t *testing.T) {
 			}
 			restarted.posts.list.Select(2)
 			restarted = openReader(t, restarted)
-			if !strings.Contains(restarted.View().Content, tc.updated) || !strings.Contains(restarted.View().Content, "first body") {
+			plainView = ansi.Strip(restarted.View().Content)
+			if !strings.Contains(plainView, tc.updated) || !strings.Contains(plainView, "first body") {
 				t.Fatalf("article after database reopen = %q", restarted.View().Content)
 			}
 		})

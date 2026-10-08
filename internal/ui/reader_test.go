@@ -8,6 +8,7 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/su1uv/atom1c/internal/database"
 )
 
@@ -16,7 +17,7 @@ func readerFixture() model {
 	m.focus = focusPosts
 	posts := make([]database.Post, 30)
 	for i := range posts {
-		posts[i] = database.Post{ID: int64(i + 1), FeedID: 1, Title: "Article", ContentKind: "text", Content: strings.Repeat("Long body line\n", 100)}
+		posts[i] = database.Post{ID: int64(i + 1), FeedID: 1, Title: "Article", Link: "https://example.test/article", ContentKind: "text", Content: strings.Repeat("Long body line\n", 100)}
 	}
 	return updateModel(m, postPageResult{request: m.postRequest, feedID: 1, posts: posts})
 }
@@ -87,7 +88,7 @@ func TestArticleRendererCoalescesWorkAndCachesDocument(t *testing.T) {
 		}
 	}
 	m = runUICommands(t, m, commands[len(commands)-1])
-	if builds.Load() != 1 || m.reader.viewport.Width() != 50 || m.reader.loading {
+	if builds.Load() != 1 || m.reader.viewport.Width() != readerColumnWidth(50) || m.reader.loading {
 		t.Fatalf("builds %d, reader %#v", builds.Load(), m.reader)
 	}
 }
@@ -106,8 +107,12 @@ func TestReaderOpeningRoutingAndReturnPreserveList(t *testing.T) {
 	m.posts.list.SetFilterText("Article")
 	m.posts.list.Select(m.posts.list.Paginator.PerPage + 1)
 	index, page, query := m.posts.list.Index(), m.posts.list.Paginator.Page, m.posts.list.FilterInput.Value()
+	selected, ok := m.selectedArticle()
+	if !ok {
+		t.Fatal("selected post has no persisted record")
+	}
 	m = openReader(t, m)
-	if m.reader.article.post.ID != int64(index+1) || !strings.Contains(m.View().Content, "Source: Feed 0") {
+	if m.reader.article.post.ID != selected.post.ID || !strings.Contains(ansi.Strip(m.View().Content), "Source: Feed 0") {
 		t.Fatalf("wrong article: %#v", m.reader.article)
 	}
 	for _, msg := range []tea.KeyPressMsg{press("a", 'a'), press("R", 'R'), press("r", 'r'), press("/", '/'), press("P", 'P'), shiftTab(), press("tab", tea.KeyTab)} {
@@ -161,7 +166,7 @@ func TestReaderResizesAndRejectsObsoleteRenders(t *testing.T) {
 	m, resize := applyMessage(m, tea.WindowSizeMsg{Width: 40, Height: 10})
 	m = runUICommands(t, m, resize)
 	m = updateModel(m, oldResult)
-	if m.reader.viewport.Width() != 40 || lipgloss.Width(m.reader.viewport.GetContent()) > 40 {
+	if m.reader.viewport.Width() != readerColumnWidth(40) || lipgloss.Width(m.reader.viewport.GetContent()) > readerColumnWidth(40) {
 		t.Fatal("stale render replaced resized document")
 	}
 	m = updateModel(m, press("end", tea.KeyEnd))

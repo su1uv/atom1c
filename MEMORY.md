@@ -12,7 +12,8 @@ Current problems; update as work resolves them. This is a snapshot, not the road
 - Feed management now uses SQLite with async responsive pages, global name search,
   validated add, recoverable errors, and persistence across restart.
 - Feed refresh is explicit from the UI; no automatic/background refresh exists.
-- No article-reading view exists.
+- Step 8 provides a full-screen persisted article reader; the next roadmap item
+  is step 9, the single-owner SSH server.
 - User records exist, but no SSH identity/session integration is implemented.
 
 ## Verification baseline
@@ -42,6 +43,12 @@ Current problems; update as work resolves them. This is a snapshot, not the road
   Atom/RSS UI workflows use local HTTP servers and temporary SQLite; full tests,
   vet, compile check, and diff check passed on 2026-10-07.
 - Passing checks do not establish functional completeness.
+- Step 8 passed full tests, UI race tests, vet, compile, and diff checks on
+  2026-10-08. Atom/RSS temporary-SQLite workflows cover reading, refresh snapshot
+  isolation, reopening updated articles, and database reopen. A PTY smoke checked
+  scroll/page/jump keys, resizing, return, and clean quit; review corrections pass.
+- Reader rendering serializes/coalesces work and caches the immutable document;
+  HTML/XHTML regressions cover whitespace, CDATA, indentation, and size growth.
 
 ## Local tooling
 - `.opencode/` and non-plan `.agents/` files are ignored and untracked; roadmap

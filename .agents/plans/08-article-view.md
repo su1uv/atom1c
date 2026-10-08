@@ -1,6 +1,7 @@
 # Step 8 — Article view
 
-Status: planned; implementation in progress.
+Status: implemented; full-screen persisted article reading, responsive reflow,
+snapshot isolation, and Atom/RSS refresh/reopen workflows verified.
 Roadmap: [Step 8](roadmap.md#8-implement-the-article-view).
 
 ## Confirmed behavior
@@ -64,3 +65,26 @@ hand-edit generated database files. Use short repository commit prefixes.
   or reopen a closed reader.
 - Reopening after refresh or database reopen shows persisted current content.
 - Required checks, workflow verification, and code review pass.
+
+## Verification completed
+
+- Behavioral tests were written and run failing before snapshot retention,
+  rendering, reader routing, and review-driven corrections were implemented.
+- Table-driven rendering tests cover text, HTML/XHTML, CDATA, malformed markup,
+  metadata fallbacks, blank/unsupported content, lists, inline whitespace, code
+  indentation, terminal controls, Unicode, and wide/long text.
+- Regression tests prevent multiline styling allocation expansion and excessive
+  nested quote expansion; rendering output is bounded and deep markup simplified.
+- Reader tests cover selection/filter/page retention, keyboard ownership, scroll
+  limits, quit, stale results, narrow terminals, repeated resize, and navigation
+  during initial rendering/reflow. A blocked-render test verifies serialized,
+  coalesced work and cached width-independent documents.
+- Temporary-SQLite/local-HTTP Atom and RSS workflows verify reading persisted
+  content, stable snapshots during refresh, updated content on reopening, and
+  reading after database reopen.
+- A real pseudo-terminal smoke check exercised startup, opening persisted content,
+  scrolling, PgDown/End/Home, resizing from 100x24 to 50x12, Esc, and clean quit.
+- Full tests, UI race tests, vet, compile check, and diff checks passed on
+  2026-10-08. Read-only code review findings were fixed and rechecked.
+- README documents controls and rendering behavior. AGENTS.md was checked and
+  needs no additional guidance for this step.

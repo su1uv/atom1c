@@ -87,7 +87,10 @@
 - Display title, source, date, link, and feed-provided content.
 - Render feed HTML appropriately for the terminal.
 - Preserve list selection when returning from the reader.
-- **Done:** users can browse feeds and read their supplied content in the app.
+- **Done:** Enter opens a full-screen reader for persisted feed-provided content;
+  scrolling, terminal HTML/XHTML rendering, resizing, and Esc return preserve
+  navigation. Open articles remain stable during refresh. See
+  [implementation plan](08-article-view.md).
 
 ## Milestone 4 — SSH access
 

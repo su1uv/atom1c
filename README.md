@@ -35,7 +35,7 @@ Main view:
 | --- | --- |
 | `a` | add a feed |
 | `j` / `k` (or up / down) | move within the current list page |
-| `h` / `l` (or left / right) | previous / next page when the feeds pane is focused |
+| `h` / `l` (or left / right) | previous / next page in the focused pane |
 | `/` | search all feeds by name (case-insensitive substring) |
 | `tab` | open the selected feed and load its persisted posts |
 | `shift+tab` | back to feeds |
@@ -55,6 +55,12 @@ selected/open feed's latest entries; a successful refresh reloads the open posts
 Database reads and refreshes run asynchronously. Empty feeds, loading, and
 recoverable errors are shown in the relevant pane; `r` retries the failed
 operation.
+
+Both lists stop up/down navigation at the current page's edges. Use `h`/`l` or
+left/right to change pages; each page change selects its first item. Post pages
+fit the pane height, with their page indicator in the header so additional posts
+do not expand the container. `P` hides or shows that indicator without resizing
+the pane. `/` in the posts pane filters titles across the loaded feed's posts.
 
 Add feed modal:
 

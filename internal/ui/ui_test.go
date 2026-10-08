@@ -194,24 +194,24 @@ func TestPostFilteringRoutesShortcutCharactersToFocusedFilter(t *testing.T) {
 func TestPaginationToggleAffectsOnlyFocusedPane(t *testing.T) {
 	m := testModel()
 	feedsBefore := m.feeds.list.ShowPagination()
-	postsBefore := m.posts.list.ShowPagination()
+	postsBefore := m.showPostPagination
 	m = updateModel(m, press("P", 'P'))
 
 	if m.showFeedPagination {
 		t.Fatal("focused feeds pane pagination was not toggled")
 	}
-	if m.posts.list.ShowPagination() != postsBefore {
+	if m.showPostPagination != postsBefore {
 		t.Fatal("inactive posts pane pagination was toggled")
 	}
 
 	m = updateModel(m, press("tab", tea.KeyTab))
 	feedsBefore = m.showFeedPagination
-	postsBefore = m.posts.list.ShowPagination()
+	postsBefore = m.showPostPagination
 	m = updateModel(m, press("P", 'P'))
 	if m.showFeedPagination != feedsBefore {
 		t.Fatal("inactive feeds pane pagination was toggled")
 	}
-	if m.posts.list.ShowPagination() == postsBefore {
+	if m.showPostPagination == postsBefore {
 		t.Fatal("focused posts pane pagination was not toggled")
 	}
 }
@@ -296,6 +296,97 @@ func TestPostPaneAndHelpFitWithinTerminalHeight(t *testing.T) {
 				t.Fatalf("help commands missing from rendered view: %q", view)
 			}
 		})
+	}
+}
+
+func TestPostNavigationStopsAtPageEdges(t *testing.T) {
+	for _, down := range []tea.KeyPressMsg{press("j", 'j'), press("down", tea.KeyDown)} {
+		t.Run(down.String(), func(t *testing.T) {
+			m := testModel()
+			m = updateModel(m, tea.WindowSizeMsg{Width: 100, Height: 24})
+			m.focus = focusPosts
+			posts := make([]database.Post, 100)
+			for i := range posts {
+				posts[i] = database.Post{ID: int64(i + 1), Title: fmt.Sprintf("Post %d", i)}
+			}
+			m = updateModel(m, postPageResult{request: m.postRequest, feedID: m.openFeedID, posts: posts})
+			pageSize := m.posts.list.Paginator.PerPage
+			for i := 0; i < pageSize+2; i++ {
+				m = updateModel(m, down)
+			}
+			if m.posts.list.Paginator.Page != 0 || m.posts.list.Index() != pageSize-1 {
+				t.Fatalf("down crossed the page edge: page=%d index=%d", m.posts.list.Paginator.Page, m.posts.list.Index())
+			}
+			m = updateModel(m, press("right", tea.KeyRight))
+			if m.posts.list.Paginator.Page != 1 {
+				t.Fatal("right did not advance the posts page")
+			}
+			if m.posts.list.Index() != pageSize {
+				t.Fatal("page change did not select its first post")
+			}
+			m = updateModel(m, press("up", tea.KeyUp))
+			if m.posts.list.Index() != pageSize {
+				t.Fatal("up crossed into the previous posts page")
+			}
+			m = updateModel(m, press("left", tea.KeyLeft))
+			if m.posts.list.Paginator.Page != 0 {
+				t.Fatal("left did not return to the previous posts page")
+			}
+			m = updateModel(m, press("h", 'h'))
+			if m.posts.list.Paginator.Page != 0 {
+				t.Fatal("previous-page key moved before the first page")
+			}
+			m.posts.list.Select(len(posts) - 1)
+			m = updateModel(m, down)
+			m = updateModel(m, press("l", 'l'))
+			if m.posts.list.Index() != len(posts)-1 {
+				t.Fatal("navigation wrapped past the last post")
+			}
+		})
+	}
+}
+
+func TestLoadedPostPagesKeepTheFeedContainerHeight(t *testing.T) {
+	for height := 12; height <= 40; height++ {
+		t.Run(fmt.Sprintf("height_%d", height), func(t *testing.T) {
+			m := updateModel(testModel(), tea.WindowSizeMsg{Width: 100, Height: height})
+			m.focus = focusPosts
+			posts := make([]database.Post, 100)
+			for i := range posts {
+				posts[i] = database.Post{ID: int64(i + 1), Title: fmt.Sprintf("Post %d", i)}
+			}
+			m = updateModel(m, postPageResult{request: m.postRequest, feedID: m.openFeedID, posts: posts})
+			for page := 0; page < m.posts.list.Paginator.TotalPages; page++ {
+				m.posts.list.Select(page * m.posts.list.Paginator.PerPage)
+				if got, want := lipgloss.Height(m.postsView()), lipgloss.Height(m.feedView()); got != want {
+					t.Fatalf("page %d: posts height=%d, feed height=%d", page+1, got, want)
+				}
+				if got := lipgloss.Height(m.View().Content); got > height {
+					t.Fatalf("page %d: view height=%d exceeds terminal=%d", page+1, got, height)
+				}
+			}
+			m = updateModel(m, press("P", 'P'))
+			if m.posts.list.ShowPagination() {
+				t.Fatal("toggle re-enabled pagination inside the post container")
+			}
+			if got, want := lipgloss.Height(m.postsView()), lipgloss.Height(m.feedView()); got != want {
+				t.Fatalf("toggling pagination changed height: posts=%d feeds=%d", got, want)
+			}
+		})
+	}
+}
+
+func TestPostPageIndicatorRemainsVisibleWithLongFeedName(t *testing.T) {
+	m := updateModel(testModel(), tea.WindowSizeMsg{Width: 80, Height: 24})
+	m.openFeedName = strings.Repeat("Long feed name ", 8)
+	posts := make([]database.Post, 100)
+	for i := range posts {
+		posts[i] = database.Post{ID: int64(i + 1), Title: fmt.Sprintf("Post %d", i)}
+	}
+	m = updateModel(m, postPageResult{request: m.postRequest, feedID: m.openFeedID, posts: posts})
+	indicator := fmt.Sprintf("page 1/%d", m.posts.list.Paginator.TotalPages)
+	if !strings.Contains(m.postsView(), indicator) {
+		t.Fatalf("post header does not show complete indicator %q", indicator)
 	}
 }
 

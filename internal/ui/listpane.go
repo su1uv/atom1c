@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -23,7 +24,9 @@ func initialFeedsModel(styles Styles) listPane {
 }
 
 func initialPostsModel(styles Styles) listPane {
-	return newListPane("Posts", nil, styles, focusPosts)
+	pane := newListPane("Posts", nil, styles, focusPosts)
+	pane.list.SetShowPagination(false)
+	return pane
 }
 
 func feedItems(feeds []database.Feed) []list.Item {
@@ -72,6 +75,18 @@ func (m *listPane) setSize(w, h int) {
 }
 
 func (m *listPane) Update(msg tea.Msg) tea.Cmd {
+	if msg, ok := msg.(tea.KeyPressMsg); ok && m.id == focusPosts && m.list.FilterState() != list.Filtering && m.list.Height() > 0 {
+		// Keep cursor navigation inside this page, just like the feed pane.
+		// Page changes are owned by the explicit previous/next-page bindings.
+		cursor := m.list.Cursor()
+		itemsOnPage := m.list.Paginator.ItemsOnPage(len(m.list.VisibleItems()))
+		if key.Matches(msg, m.list.KeyMap.CursorUp) && cursor == 0 {
+			return nil
+		}
+		if key.Matches(msg, m.list.KeyMap.CursorDown) && cursor >= itemsOnPage-1 {
+			return nil
+		}
+	}
 	updated, cmd := m.list.Update(msg)
 	m.list = updated
 	return tagPaneCommand(cmd, m.id)

@@ -3,6 +3,11 @@
 Current problems; update as work resolves them. This is a snapshot, not the roadmap.
 
 ## Missing functionality
+- Owner confirmed feeds stay bounded; posts use page-edge cursor navigation and
+  a header page indicator. Further overflow traced to Lipgloss v2 border-inclusive
+  widths: long item text wrapped inside undersized borders. Both panes now budget
+  borders separately; tests check long text and repeated page keys in both dimensions.
+  100 `Layout Test Feed` records remain in local `atom1c.db` for visual checks.
 - The running app is a local TUI; SSH access is an empty placeholder.
 - Feed management now uses SQLite with async responsive pages, global name search,
   validated add, recoverable errors, and persistence across restart.

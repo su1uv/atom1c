@@ -20,6 +20,9 @@ and post queries are reused; this step connects them to the application.
   Moving the feed-list cursor alone does not change the open posts pane.
 - Load all posts for the open feed, ordered by descending database ID. Retain the
   existing in-memory post filtering and pagination.
+- Post cursor movement stops at page edges, matching feeds; `h`/`l` or left/right
+  changes pages and selects the first item. The page indicator is in the header,
+  toggled by `P` without changing container height.
 - Opening posts reads SQLite; network fetching is explicit and uses `R`.
 - Show loading, empty, and failure states in the TUI. Do not print operational
   messages over the interface.

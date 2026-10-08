@@ -36,6 +36,7 @@ func newModel(s *internal.State) tea.Model {
 		feedStore:          store,
 		feedSearch:         initialFeedSearch(),
 		showFeedPagination: true,
+		showPostPagination: true,
 		refreshing:         make(map[int64]bool),
 		refreshRequests:    make(map[int64]uint64),
 		refreshErrors:      make(map[int64]string),
@@ -89,6 +90,7 @@ type model struct {
 	saveRequest        uint64
 	pendingSavedFeedID int64
 	showFeedPagination bool
+	showPostPagination bool
 
 	openFeedID       int64
 	openFeedName     string
@@ -201,8 +203,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showFeedPagination = !m.showFeedPagination
 				return m, nil
 			}
-			pane := m.activePane()
-			pane.list.SetShowPagination(!pane.list.ShowPagination())
+			m.showPostPagination = !m.showPostPagination
 			return m, nil
 		case m.focus == focusFeeds && key.Matches(msg, m.keys.nextPage):
 			if m.canGoToFeedPage(m.feedPage + 1) {
@@ -218,6 +219,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.feedCursor = 0
 				m.pendingSavedFeedID = 0
 				return m, m.beginFeedPageLoad()
+			}
+			return m, nil
+		case m.focus == focusPosts && key.Matches(msg, m.keys.nextPage):
+			if m.posts.list.Paginator.Page < m.posts.list.Paginator.TotalPages-1 {
+				m.posts.list.NextPage()
+				m.posts.list.Select(m.posts.list.Paginator.Page * m.posts.list.Paginator.PerPage)
+			}
+			return m, nil
+		case m.focus == focusPosts && key.Matches(msg, m.keys.prevPage):
+			if m.posts.list.Paginator.Page > 0 {
+				m.posts.list.PrevPage()
+				m.posts.list.Select(m.posts.list.Paginator.Page * m.posts.list.Paginator.PerPage)
 			}
 			return m, nil
 		case key.Matches(msg, m.keys.retry):
@@ -412,7 +425,10 @@ func (m model) postsView() string {
 	case m.openFeedID != 0 && len(m.posts.list.Items()) == 0:
 		status = "No posts in " + m.openFeedName + " — press R to refresh"
 	case m.openFeedID != 0:
-		status = fmt.Sprintf("%d posts from %s", len(m.posts.list.Items()), m.openFeedName)
+		status = fmt.Sprintf("%d posts", len(m.posts.list.Items()))
+	}
+	if m.openFeedID != 0 && m.showPostPagination && !m.postLoading && m.postErr == "" {
+		status += fmt.Sprintf(" • page %d/%d", m.posts.list.Paginator.Page+1, max(m.posts.list.Paginator.TotalPages, 1))
 	}
 	if m.openFeedID != 0 && m.refreshing[m.openFeedID] {
 		status += " • refreshing feed…"

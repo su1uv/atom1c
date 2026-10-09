@@ -38,6 +38,37 @@ type feedRefreshResult struct {
 	err     error
 }
 
+type feedRefreshNotification struct {
+	feedIDs []int64
+	err     error
+}
+
+func (m model) feedRefreshSubscriptionCommand() tea.Cmd {
+	if m.refreshSubscription == nil {
+		return nil
+	}
+	subscription := m.refreshSubscription
+	ctx := m.sessionContext()
+	return func() tea.Msg {
+		feedIDs, err := subscription.Next(ctx)
+		return feedRefreshNotification{feedIDs: feedIDs, err: err}
+	}
+}
+
+func (m model) updateFeedRefreshNotification(msg feedRefreshNotification) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		return m, nil
+	}
+	commands := []tea.Cmd{m.feedRefreshSubscriptionCommand()}
+	for _, feedID := range msg.feedIDs {
+		if feedID == m.openFeedID && m.openFeedID != 0 {
+			commands = append(commands, m.beginPostLoad(m.currentPostSelectionID()))
+			break
+		}
+	}
+	return m, tea.Batch(commands...)
+}
+
 func (m *model) openFeed(selected item) tea.Cmd {
 	if selected.id != m.openFeedID {
 		m.postRecords = nil
@@ -201,6 +232,9 @@ func (m model) updateFeedRefreshResult(msg feedRefreshResult) (tea.Model, tea.Cm
 	delete(m.refreshErrors, msg.feed.ID)
 	m.refreshCompleted[msg.feed.ID] = true
 	if m.openFeedID == msg.feed.ID {
+		if m.refreshSubscription != nil {
+			return m, nil
+		}
 		return m, m.beginPostLoad(m.currentPostSelectionID())
 	}
 	return m, nil

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/su1uv/atom1c/internal"
 	"github.com/su1uv/atom1c/internal/database"
 )
 
@@ -44,6 +45,12 @@ func TestRefreshCoordinatorSharesInFlightResult(t *testing.T) {
 	}
 	if got := calls.Load(); got != 1 {
 		t.Fatalf("refresh calls = %d, want one shared call", got)
+	}
+	if err := coordinator.Refresh(context.Background(), feed); !errors.Is(err, wantErr) {
+		t.Fatalf("refresh after completed failure = %v, want a fresh failure %v", err, wantErr)
+	}
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("refresh calls after retry = %d, want a new operation", got)
 	}
 }
 
@@ -203,6 +210,8 @@ func TestRefreshCoordinatorCoalescesSuccessNotifications(t *testing.T) {
 	defer coordinator.Close()
 	subscription := coordinator.Subscribe(context.Background())
 	defer subscription.Close()
+	secondSubscription := coordinator.Subscribe(context.Background())
+	defer secondSubscription.Close()
 
 	for _, id := range []int64{1, 2, 3} {
 		if err := coordinator.Refresh(context.Background(), database.Feed{ID: id}); id == 3 {
@@ -214,14 +223,16 @@ func TestRefreshCoordinatorCoalescesSuccessNotifications(t *testing.T) {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	ids, err := subscription.Next(ctx)
-	if err != nil {
-		t.Fatalf("read refresh notifications: %v", err)
-	}
-	if len(ids) != 2 || ids[0] != 1 || ids[1] != 2 {
-		t.Fatalf("refresh notifications = %v, want [1 2]", ids)
+	for _, listener := range []internal.FeedRefreshSubscription{subscription, secondSubscription} {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		ids, err := listener.Next(ctx)
+		cancel()
+		if err != nil {
+			t.Fatalf("read refresh notifications: %v", err)
+		}
+		if len(ids) != 2 || ids[0] != 1 || ids[1] != 2 {
+			t.Fatalf("refresh notifications = %v, want [1 2] for each connected session", ids)
+		}
 	}
 }
 

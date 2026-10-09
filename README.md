@@ -53,8 +53,9 @@ ssh -p 23234 server-account@host
 Atom1c accepts interactive PTY shells only; remote commands, SFTP, and port
 forwarding are not enabled. Each SSH connection gets an independent reader UI
 over the same database. Sessions see shared changes on their next data load or
-after reconnecting; there is no live session broadcast. `q` or `ctrl+c` ends only
-the current reader session. `SIGINT`/`SIGTERM` stops the server and active sessions.
+after reconnecting, while successful feed refreshes automatically update sessions
+that have that feed open. `q` or `ctrl+c` ends only the current reader session.
+`SIGINT`/`SIGTERM` stops the server and active sessions.
 
 ## Usage
 

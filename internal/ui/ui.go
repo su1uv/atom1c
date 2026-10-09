@@ -46,7 +46,7 @@ func newModelWithContext(s *internal.State, sessionContext context.Context) tea.
 		fetcher = reader.NewFetcher(nil)
 	}
 
-	return model{
+	m := model{
 		ctx:                sessionContext,
 		styles:             styles,
 		keys:               keys,
@@ -68,6 +68,10 @@ func newModelWithContext(s *internal.State, sessionContext context.Context) tea.
 		articleFetcher:     fetcher,
 		darkBackground:     true,
 	}
+	if s != nil && s.FeedRefresh != nil {
+		m.refreshSubscription = s.FeedRefresh.Subscribe(sessionContext)
+	}
+	return m
 }
 
 type focusState int
@@ -103,21 +107,22 @@ type model struct {
 	help      help.Model
 	addFeed   addFeedModel
 
-	feedStore          feedStore
-	feedSearch         textinput.Model
-	feedSearching      bool
-	feedQuery          string
-	feedPage           int
-	feedPageSize       int
-	feedCursor         int
-	feedTotal          int64
-	feedLoading        bool
-	feedErr            string
-	feedRequest        uint64
-	saveRequest        uint64
-	pendingSavedFeedID int64
-	showFeedPagination bool
-	showPostPagination bool
+	feedStore           feedStore
+	refreshSubscription internal.FeedRefreshSubscription
+	feedSearch          textinput.Model
+	feedSearching       bool
+	feedQuery           string
+	feedPage            int
+	feedPageSize        int
+	feedCursor          int
+	feedTotal           int64
+	feedLoading         bool
+	feedErr             string
+	feedRequest         uint64
+	saveRequest         uint64
+	pendingSavedFeedID  int64
+	showFeedPagination  bool
+	showPostPagination  bool
 
 	openFeedID       int64
 	openFeedName     string
@@ -152,6 +157,9 @@ func (m model) sessionContext() context.Context {
 
 func (m model) Init() tea.Cmd {
 	commands := []tea.Cmd{func() tea.Msg { return tea.RequestBackgroundColor() }}
+	if refreshCommand := m.feedRefreshSubscriptionCommand(); refreshCommand != nil {
+		commands = append(commands, refreshCommand)
+	}
 	if m.feedPageSize > 0 && m.feedStore != nil {
 		commands = append(commands, m.beginFeedPageLoad())
 	}
@@ -174,6 +182,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updatePostFilterResult(msg)
 	case feedRefreshResult:
 		return m.updateFeedRefreshResult(msg)
+	case feedRefreshNotification:
+		return m.updateFeedRefreshNotification(msg)
 	case savedFeedPageResult:
 		return m.updateSavedFeedPageResult(msg)
 	case feedSearchDebounceMsg:

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/url"
+	"regexp"
 	"time"
 
 	"github.com/su1uv/atom1c/internal"
@@ -19,6 +21,8 @@ type scheduledFeedRefresher interface {
 }
 
 type refreshIntervalWaiter func(context.Context, time.Duration) error
+
+var refreshErrorURLPattern = regexp.MustCompile(`https?://[^\s"'<>]+`)
 
 // RunRefreshScheduler begins with an immediate complete feed sweep and then
 // waits one interval after each sweep has finished. Interval zero disables work.
@@ -84,11 +88,25 @@ func refreshSweep(ctx context.Context, lister refreshFeedLister, refresher sched
 			logger.Error("feed refresh failed",
 				"feed_id", storedFeed.ID,
 				"feed_name", storedFeed.Name,
-				"feed_url", storedFeed.Url,
-				"error", err,
+				"error", redactRefreshError(err),
 			)
 		}
 	}
+}
+
+func redactRefreshError(err error) string {
+	return refreshErrorURLPattern.ReplaceAllStringFunc(err.Error(), func(rawURL string) string {
+		parsed, parseErr := url.Parse(rawURL)
+		if parseErr != nil || parsed.Host == "" {
+			return "[redacted URL]"
+		}
+		parsed.User = nil
+		parsed.RawQuery = ""
+		parsed.ForceQuery = false
+		parsed.Fragment = ""
+		parsed.RawFragment = ""
+		return parsed.String()
+	})
 }
 
 func waitForRefreshInterval(ctx context.Context, interval time.Duration) error {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
@@ -169,6 +170,33 @@ func TestRunRefreshSchedulerStopsOnCancellationDuringSweep(t *testing.T) {
 	}
 	if len(attempted) != 1 || attempted[0] != 1 {
 		t.Fatalf("attempted feeds after cancellation = %v, want [1]", attempted)
+	}
+}
+
+func TestRunRefreshSchedulerRedactsCredentialsFromFailureLogs(t *testing.T) {
+	feedURL := "https://reader:password@example.test/feed?token=secret"
+	lister := &scriptedRefreshFeedLister{results: []refreshFeedListResult{{feeds: []database.Feed{{ID: 5, Name: "Private", Url: feedURL}}}}}
+	var logOutput bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logOutput, nil))
+	refresher := schedulerRefreshFunc(func(context.Context, database.Feed) error {
+		return fmt.Errorf("fetch feed %q: forbidden", feedURL)
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	err := runRefreshScheduler(ctx, lister, refresher, time.Minute, logger, func(waitCtx context.Context, _ time.Duration) error {
+		cancel()
+		return waitCtx.Err()
+	})
+	if err != nil {
+		t.Fatalf("run scheduler: %v", err)
+	}
+	got := logOutput.String()
+	for _, secret := range []string{"reader", "password", "token", "secret"} {
+		if strings.Contains(got, secret) {
+			t.Errorf("failure log leaked %q: %s", secret, got)
+		}
+	}
+	if !strings.Contains(got, "https://example.test/feed") {
+		t.Errorf("failure log lost safe URL context: %s", got)
 	}
 }
 

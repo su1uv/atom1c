@@ -2,11 +2,9 @@
 
 *.tape
 
-# Agent tooling is local-only; retain project plans for roadmap versioning.
+# Agent tooling and plans are local-only.
 /.opencode/
-/.agents/*
-!/.agents/plans/
-!/.agents/plans/**
+/.agents/
 
 
 

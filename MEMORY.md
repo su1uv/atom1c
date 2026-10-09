@@ -17,7 +17,7 @@
 
 ## Verification baseline
 - Historical steps 1–5 established timestamp, Atom/RSS parsing, transactional
-  post persistence, and UI input routing; details remain in roadmap plans.
+  post persistence, and UI input routing; historical plans are local-only.
 - Startup migrations are embedded. The timestamp schema has not been deployed;
   existing source migrations use UTC second-precision TEXT timestamps.
 - Step 6 added SQLite feed paging/global Unicode-insensitive search and validated
@@ -55,6 +55,6 @@
   GIF demonstrates SSH, feed search, full articles, scrolling, and preview toggle.
 
 ## Local tooling
-- `.opencode/` and non-plan `.agents/` files are ignored and untracked; roadmap
-  plans remain versioned; the formerly tracked review command is preserved locally.
+- All `.opencode/` and `.agents/` files, including plans, are ignored and untracked;
+  formerly tracked plans and review tooling are preserved locally.
 - Split roadmap work into small, independently reviewable commits per `AGENTS.md`.

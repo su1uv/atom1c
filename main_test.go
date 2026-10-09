@@ -39,12 +39,12 @@ func TestRunSSHServicesRefreshesWithoutConnectedSSHClients(t *testing.T) {
 		subscription := state.FeedRefresh.Subscribe(ctx)
 		defer subscription.Close()
 		close(continueResponse)
-		feedIDs, err := subscription.Next(ctx)
+		notification, err := subscription.Next(ctx)
 		if err != nil {
 			return fmt.Errorf("wait for background refresh: %w", err)
 		}
-		if len(feedIDs) != 1 || feedIDs[0] != storedFeed.ID {
-			return fmt.Errorf("refresh notifications = %v, want [%d]", feedIDs, storedFeed.ID)
+		if notification.Reconcile || len(notification.FeedIDs) != 1 || notification.FeedIDs[0] != storedFeed.ID {
+			return fmt.Errorf("refresh notification = %#v, want feed ID %d", notification, storedFeed.ID)
 		}
 		posts, err := state.Db.GetPostsByFeed(ctx, storedFeed.ID)
 		if err != nil {

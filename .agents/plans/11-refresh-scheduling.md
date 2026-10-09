@@ -100,17 +100,19 @@ authorization, uses a new remote branch, and targets `main`.
 ## Verification completed
 
 - The table-driven interval parser tests cover default, positive duration, zero,
-  malformed input, negative input, and nil environment lookup. Full tests, vet,
+  empty, malformed input, negative input, and nil environment lookup. Full tests, vet,
   network-free compile, and diff checks passed with Go 1.27.1 on 2026-10-09.
 - Coordinator tests cover same-feed sharing and result propagation, different-feed
   independence, independent and last-caller cancellation, shutdown cancellation and
-  waiting, coalesced success-only notifications, and persistence before notification.
+  waiting, coalesced success-only notifications, bounded notification overflow
+  reconciliation, and persistence before notification.
   Full tests, vet, network-free compile, diff checks, and 10 targeted race-test runs
   passed with Go 1.27.1 on 2026-10-09.
 - The refresh feed query returns a complete, deterministically ordered snapshot.
   Scheduler tests cover immediate/sequential sweeps, per-feed failure isolation,
   enumeration failure logging/retry, updated feed snapshots on later sweeps, empty
-  feeds, disable behavior, and cancellation during a sweep. `sqlc generate`, full tests,
+  feeds, disable behavior, cancellation during a sweep, and URL credential redaction
+  in failure logs. `sqlc generate`, full tests,
   vet, network-free compile, diff checks, and 10 targeted race-test runs passed
   with Go 1.27.1 on 2026-10-09.
 - Server lifecycle tests verify a startup refresh with no SSH clients, manual

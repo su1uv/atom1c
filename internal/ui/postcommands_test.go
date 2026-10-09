@@ -255,7 +255,7 @@ func TestSuccessfulSharedRefreshNotificationReloadsOpenFeedAndPreservesReaderSta
 	}
 
 	priorRequest := m.postRequest
-	m, cmd := applyMessage(m, feedRefreshNotification{feedIDs: []int64{1}})
+	m, cmd := applyMessage(m, feedRefreshNotification{notification: internal.FeedRefreshNotification{FeedIDs: []int64{1}}})
 	if m.postRequest != priorRequest+1 || !m.postLoading {
 		t.Fatalf("notification post state = request %d, loading %v; want request %d and loading", m.postRequest, m.postLoading, priorRequest+1)
 	}
@@ -294,12 +294,26 @@ func TestUnrelatedSharedRefreshNotificationDoesNotReloadOpenFeed(t *testing.T) {
 	m := modelWithFeedStore(store)
 	m.refreshSubscription = testRefreshSubscription{}
 	priorRequest := m.postRequest
-	m, cmd := applyMessage(m, feedRefreshNotification{feedIDs: []int64{2, 3}})
+	m, cmd := applyMessage(m, feedRefreshNotification{notification: internal.FeedRefreshNotification{FeedIDs: []int64{2, 3}}})
 	if m.postRequest != priorRequest || m.postLoading {
 		t.Fatalf("unrelated notification changed post load state: request %d loading %v", m.postRequest, m.postLoading)
 	}
 	if cmd == nil {
 		t.Fatal("unrelated notification did not re-arm the subscription watcher")
+	}
+}
+
+func TestRefreshNotificationOverflowReloadsCurrentFeed(t *testing.T) {
+	store := postStoreWithFeeds(database.Feed{ID: 1, Name: "Open", Url: "https://example.test/open"})
+	m := modelWithFeedStore(store)
+	m.refreshSubscription = testRefreshSubscription{}
+	priorRequest := m.postRequest
+	m, cmd := applyMessage(m, feedRefreshNotification{notification: internal.FeedRefreshNotification{Reconcile: true}})
+	if m.postRequest != priorRequest+1 || !m.postLoading {
+		t.Fatalf("overflow notification did not reload current feed: request=%d loading=%v", m.postRequest, m.postLoading)
+	}
+	if cmd == nil {
+		t.Fatal("overflow notification did not re-arm the subscription watcher")
 	}
 }
 
@@ -462,9 +476,9 @@ func applyRefreshNotificationResult(t *testing.T, m model, notification feedRefr
 
 type testRefreshSubscription struct{}
 
-func (testRefreshSubscription) Next(ctx context.Context) ([]int64, error) {
+func (testRefreshSubscription) Next(ctx context.Context) (internal.FeedRefreshNotification, error) {
 	<-ctx.Done()
-	return nil, ctx.Err()
+	return internal.FeedRefreshNotification{}, ctx.Err()
 }
 
 func (testRefreshSubscription) Close() {}

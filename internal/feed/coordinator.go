@@ -14,6 +14,7 @@ import (
 )
 
 const refreshOperationTimeout = 15 * time.Second
+const maxCoalescedRefreshFeedIDs = 64
 
 var errRefreshCoordinatorClosed = errors.New("feed refresh coordinator is closed")
 
@@ -44,14 +45,15 @@ type refreshOperation struct {
 }
 
 type refreshSubscription struct {
-	mu      sync.Mutex
-	owner   *RefreshCoordinator
-	id      uint64
-	feedIDs map[int64]struct{}
-	wake    chan struct{}
-	done    chan struct{}
-	closed  bool
-	once    sync.Once
+	mu        sync.Mutex
+	owner     *RefreshCoordinator
+	id        uint64
+	feedIDs   map[int64]struct{}
+	reconcile bool
+	wake      chan struct{}
+	done      chan struct{}
+	closed    bool
+	once      sync.Once
 }
 
 // NewRefreshCoordinator creates a process-owned refresh coordinator backed by
@@ -215,41 +217,55 @@ func (c *RefreshCoordinator) Close() {
 	c.operationsWG.Wait()
 }
 
-func (s *refreshSubscription) Next(ctx context.Context) ([]int64, error) {
+func (s *refreshSubscription) Next(ctx context.Context) (internal.FeedRefreshNotification, error) {
 	if ctx == nil {
-		return nil, errors.New("feed refresh subscription context is nil")
+		return internal.FeedRefreshNotification{}, errors.New("feed refresh subscription context is nil")
 	}
 	select {
 	case <-ctx.Done():
 		s.Close()
-		return nil, ctx.Err()
+		return internal.FeedRefreshNotification{}, ctx.Err()
 	case <-s.done:
-		return nil, io.EOF
+		return internal.FeedRefreshNotification{}, io.EOF
 	case <-s.wake:
+	}
+	if err := ctx.Err(); err != nil {
+		s.Close()
+		return internal.FeedRefreshNotification{}, err
 	}
 
 	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return internal.FeedRefreshNotification{}, io.EOF
+	}
 	select {
 	case <-s.wake:
 	default:
 	}
-	ids := make([]int64, 0, len(s.feedIDs))
+	notification := internal.FeedRefreshNotification{FeedIDs: make([]int64, 0, len(s.feedIDs)), Reconcile: s.reconcile}
 	for feedID := range s.feedIDs {
-		ids = append(ids, feedID)
+		notification.FeedIDs = append(notification.FeedIDs, feedID)
 	}
 	s.feedIDs = make(map[int64]struct{})
+	s.reconcile = false
 	s.mu.Unlock()
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-	return ids, nil
+	sort.Slice(notification.FeedIDs, func(i, j int) bool { return notification.FeedIDs[i] < notification.FeedIDs[j] })
+	return notification, nil
 }
 
 func (s *refreshSubscription) notify(feedID int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.closed {
+	if s.closed || s.reconcile {
 		return
 	}
-	s.feedIDs[feedID] = struct{}{}
+	if _, exists := s.feedIDs[feedID]; !exists && len(s.feedIDs) >= maxCoalescedRefreshFeedIDs {
+		s.feedIDs = make(map[int64]struct{})
+		s.reconcile = true
+	} else {
+		s.feedIDs[feedID] = struct{}{}
+	}
 	select {
 	case s.wake <- struct{}{}:
 	default:
@@ -269,6 +285,8 @@ func (s *refreshSubscription) markClosed() {
 	s.mu.Lock()
 	if !s.closed {
 		s.closed = true
+		s.feedIDs = nil
+		s.reconcile = false
 		close(s.done)
 	}
 	s.mu.Unlock()

@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/su1uv/atom1c/internal"
 	"github.com/su1uv/atom1c/internal/database"
 )
 
@@ -39,8 +40,8 @@ type feedRefreshResult struct {
 }
 
 type feedRefreshNotification struct {
-	feedIDs []int64
-	err     error
+	notification internal.FeedRefreshNotification
+	err          error
 }
 
 func (m model) feedRefreshSubscriptionCommand() tea.Cmd {
@@ -50,8 +51,8 @@ func (m model) feedRefreshSubscriptionCommand() tea.Cmd {
 	subscription := m.refreshSubscription
 	ctx := m.sessionContext()
 	return func() tea.Msg {
-		feedIDs, err := subscription.Next(ctx)
-		return feedRefreshNotification{feedIDs: feedIDs, err: err}
+		notification, err := subscription.Next(ctx)
+		return feedRefreshNotification{notification: notification, err: err}
 	}
 }
 
@@ -60,11 +61,15 @@ func (m model) updateFeedRefreshNotification(msg feedRefreshNotification) (tea.M
 		return m, nil
 	}
 	commands := []tea.Cmd{m.feedRefreshSubscriptionCommand()}
-	for _, feedID := range msg.feedIDs {
+	reloadOpenFeed := msg.notification.Reconcile && m.openFeedID != 0
+	for _, feedID := range msg.notification.FeedIDs {
 		if feedID == m.openFeedID && m.openFeedID != 0 {
-			commands = append(commands, m.beginPostLoad(m.currentPostSelectionID()))
+			reloadOpenFeed = true
 			break
 		}
+	}
+	if reloadOpenFeed {
+		commands = append(commands, m.beginPostLoad(m.currentPostSelectionID()))
 	}
 	return m, tea.Batch(commands...)
 }

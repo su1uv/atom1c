@@ -263,6 +263,9 @@ func TestRefreshSubscriptionTracksOnlyWatchedFeedAndCoalesces(t *testing.T) {
 		t.Fatalf("watched notification = %#v, want feed ID 1", notification)
 	}
 
+	if err := coordinator.Refresh(context.Background(), database.Feed{ID: 1}); err != nil {
+		t.Fatalf("refresh feed 1 before changing watch: %v", err)
+	}
 	subscription.Watch(2)
 	for _, feedID := range []int64{1, 2} {
 		if err := coordinator.Refresh(context.Background(), database.Feed{ID: feedID}); err != nil {

@@ -22,7 +22,7 @@ type scheduledFeedRefresher interface {
 
 type refreshIntervalWaiter func(context.Context, time.Duration) error
 
-var refreshErrorURLPattern = regexp.MustCompile(`https?://[^\s"'<>]+`)
+var refreshErrorURLPattern = regexp.MustCompile(`(?i)https?://[^\s"'<>]+`)
 
 // RunRefreshScheduler begins with an immediate complete feed sweep and then
 // waits one interval after each sweep has finished. Interval zero disables work.

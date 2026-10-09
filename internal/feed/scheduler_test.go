@@ -174,29 +174,36 @@ func TestRunRefreshSchedulerStopsOnCancellationDuringSweep(t *testing.T) {
 }
 
 func TestRunRefreshSchedulerRedactsCredentialsFromFailureLogs(t *testing.T) {
-	feedURL := "https://reader:password@example.test/feed?token=secret"
-	lister := &scriptedRefreshFeedLister{results: []refreshFeedListResult{{feeds: []database.Feed{{ID: 5, Name: "Private", Url: feedURL}}}}}
-	var logOutput bytes.Buffer
-	logger := slog.New(slog.NewTextHandler(&logOutput, nil))
-	refresher := schedulerRefreshFunc(func(context.Context, database.Feed) error {
-		return fmt.Errorf("fetch feed %q: forbidden", feedURL)
-	})
-	ctx, cancel := context.WithCancel(context.Background())
-	err := runRefreshScheduler(ctx, lister, refresher, time.Minute, logger, func(waitCtx context.Context, _ time.Duration) error {
-		cancel()
-		return waitCtx.Err()
-	})
-	if err != nil {
-		t.Fatalf("run scheduler: %v", err)
-	}
-	got := logOutput.String()
-	for _, secret := range []string{"reader", "password", "token", "secret"} {
-		if strings.Contains(got, secret) {
-			t.Errorf("failure log leaked %q: %s", secret, got)
-		}
-	}
-	if !strings.Contains(got, "https://example.test/feed") {
-		t.Errorf("failure log lost safe URL context: %s", got)
+	for _, feedURL := range []string{
+		"https://reader:password@example.test/feed?token=secret",
+		"HTTPS://reader:password@example.test/feed?token=secret",
+		"hTtPs://reader:password@example.test/feed?token=secret",
+	} {
+		t.Run(feedURL, func(t *testing.T) {
+			lister := &scriptedRefreshFeedLister{results: []refreshFeedListResult{{feeds: []database.Feed{{ID: 5, Name: "Private", Url: feedURL}}}}}
+			var logOutput bytes.Buffer
+			logger := slog.New(slog.NewTextHandler(&logOutput, nil))
+			refresher := schedulerRefreshFunc(func(context.Context, database.Feed) error {
+				return fmt.Errorf("fetch feed %q: forbidden", feedURL)
+			})
+			ctx, cancel := context.WithCancel(context.Background())
+			err := runRefreshScheduler(ctx, lister, refresher, time.Minute, logger, func(waitCtx context.Context, _ time.Duration) error {
+				cancel()
+				return waitCtx.Err()
+			})
+			if err != nil {
+				t.Fatalf("run scheduler: %v", err)
+			}
+			got := logOutput.String()
+			for _, secret := range []string{"reader", "password", "token", "secret"} {
+				if strings.Contains(got, secret) {
+					t.Errorf("failure log leaked %q: %s", secret, got)
+				}
+			}
+			if !strings.Contains(strings.ToLower(got), "https://example.test/feed") {
+				t.Errorf("failure log lost safe URL context: %s", got)
+			}
+		})
 	}
 }
 

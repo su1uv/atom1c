@@ -96,3 +96,8 @@ and PR requires fresh explicit authorization, a new remote branch, and target
 - Plan scope confirmed: undeployed project; current-schema reopen coverage;
   Docker Compose; Linux amd64; non-root `atom1c`; dedicated read-only key mount;
   named data volume; loopback host binding; release-ready only.
+- A built-executable integration test verifies fresh embedded migrations, SSH
+  authentication, persisted feed/post/article cache, retained host identity and
+  permissions across restart, scheduled refresh cancellation on SIGINT, and
+  database usability afterward. It passes under the race detector with repeated
+  runs; full tests, vet, compile-only tests, and diff checks passed.

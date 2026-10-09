@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/su1uv/atom1c/internal"
@@ -88,25 +89,34 @@ func refreshSweep(ctx context.Context, lister refreshFeedLister, refresher sched
 			logger.Error("feed refresh failed",
 				"feed_id", storedFeed.ID,
 				"feed_name", storedFeed.Name,
-				"error", redactRefreshError(err),
+				"error", redactRefreshError(err, storedFeed.Url),
 			)
 		}
 	}
 }
 
-func redactRefreshError(err error) string {
-	return refreshErrorURLPattern.ReplaceAllStringFunc(err.Error(), func(rawURL string) string {
-		parsed, parseErr := url.Parse(rawURL)
-		if parseErr != nil || parsed.Host == "" {
-			return "[redacted URL]"
-		}
-		parsed.User = nil
-		parsed.RawQuery = ""
-		parsed.ForceQuery = false
-		parsed.Fragment = ""
-		parsed.RawFragment = ""
-		return parsed.String()
-	})
+func redactRefreshError(err error, feedURL string) string {
+	message := err.Error()
+	if feedURL != "" {
+		message = strings.ReplaceAll(message, feedURL, safeRefreshURL(feedURL))
+	}
+	return refreshErrorURLPattern.ReplaceAllStringFunc(message, safeRefreshURL)
+}
+
+func safeRefreshURL(rawURL string) string {
+	if queryStart := strings.IndexAny(rawURL, "?#"); queryStart >= 0 {
+		rawURL = rawURL[:queryStart]
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Host == "" {
+		return "[redacted URL]"
+	}
+	parsed.User = nil
+	parsed.RawQuery = ""
+	parsed.ForceQuery = false
+	parsed.Fragment = ""
+	parsed.RawFragment = ""
+	return parsed.String()
 }
 
 func waitForRefreshInterval(ctx context.Context, interval time.Duration) error {

@@ -178,13 +178,15 @@ func TestRunRefreshSchedulerRedactsCredentialsFromFailureLogs(t *testing.T) {
 		"https://reader:password@example.test/feed?token=secret",
 		"HTTPS://reader:password@example.test/feed?token=secret",
 		"hTtPs://reader:password@example.test/feed?token=secret",
+		"https://reader:password@example.test/feed?token=secret suffix",
 	} {
 		t.Run(feedURL, func(t *testing.T) {
 			lister := &scriptedRefreshFeedLister{results: []refreshFeedListResult{{feeds: []database.Feed{{ID: 5, Name: "Private", Url: feedURL}}}}}
 			var logOutput bytes.Buffer
 			logger := slog.New(slog.NewTextHandler(&logOutput, nil))
+			redirectURL := strings.ToUpper("https://proxyuser:pass@example.test/redirect?auth=extra")
 			refresher := schedulerRefreshFunc(func(context.Context, database.Feed) error {
-				return fmt.Errorf("fetch feed %q: forbidden", feedURL)
+				return fmt.Errorf("fetch feed %q: redirected to %q", feedURL, redirectURL)
 			})
 			ctx, cancel := context.WithCancel(context.Background())
 			err := runRefreshScheduler(ctx, lister, refresher, time.Minute, logger, func(waitCtx context.Context, _ time.Duration) error {
@@ -195,7 +197,7 @@ func TestRunRefreshSchedulerRedactsCredentialsFromFailureLogs(t *testing.T) {
 				t.Fatalf("run scheduler: %v", err)
 			}
 			got := logOutput.String()
-			for _, secret := range []string{"reader", "password", "token", "secret"} {
+			for _, secret := range []string{"reader", "password", "token", "secret", "proxyuser", "pass", "auth", "extra"} {
 				if strings.Contains(got, secret) {
 					t.Errorf("failure log leaked %q: %s", secret, got)
 				}

@@ -51,7 +51,7 @@
 - Step 12 adds a non-root Linux/amd64 Compose deployment. Executable and isolated
   container workflows verify restart/persistence, Atom/RSS, SSH sessions, scheduled
   and canceled refresh, backup/restore, and cleanup; required checks pass.
-- README is a short landing page; detailed guides live in `docs/`. The refreshed
+- README is a short landing page; guides live in `docs/`. The 1920×1080 demo
   GIF demonstrates SSH, feed search, full articles, scrolling, and preview toggle.
 
 ## Local tooling

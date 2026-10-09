@@ -1,0 +1,44 @@
+services:
+  atom1c:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: atom1c:local
+    platform: linux/amd64
+    init: true
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      GOOSE_DBSTRING: /data/atom1c.db
+      ATOM1C_SSH_ADDR: 0.0.0.0:23234
+      ATOM1C_AUTHORIZED_KEYS: /run/secrets/authorized_keys
+      ATOM1C_SSH_HOST_KEY: /data/ssh_host_ed25519_key
+      ATOM1C_REFRESH_INTERVAL: ${ATOM1C_REFRESH_INTERVAL:-15m}
+      XDG_DATA_HOME: /data
+    volumes:
+      - type: volume
+        source: atom1c-data
+        target: /data
+      - type: bind
+        source: ${ATOM1C_AUTHORIZED_KEYS:?Set ATOM1C_AUTHORIZED_KEYS to the path of your dedicated authorized_keys file}
+        target: /run/secrets/authorized_keys
+        read_only: true
+        bind:
+          create_host_path: false
+    ports:
+      - target: 23234
+        published: "${ATOM1C_SSH_PORT:-23234}"
+        host_ip: ${ATOM1C_SSH_BIND_ADDRESS:-127.0.0.1}
+        protocol: tcp
+    restart: unless-stopped
+    stop_signal: SIGINT
+    stop_grace_period: 20s
+
+volumes:
+  atom1c-data:

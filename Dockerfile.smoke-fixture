@@ -1,0 +1,16 @@
+FROM --platform=$BUILDPLATFORM golang:1.27.1-bookworm AS build
+
+ARG TARGETOS
+ARG TARGETARCH
+
+WORKDIR /src
+COPY go.mod go.sum ./
+COPY scripts/compose-smoke-fixture/main.go ./main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
+    go build -trimpath -ldflags="-s -w" -o /out/fixture .
+
+FROM scratch
+COPY --from=build --chown=10001:10001 /out/fixture /fixture
+USER 10001:10001
+EXPOSE 8080
+ENTRYPOINT ["/fixture"]

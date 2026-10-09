@@ -1,0 +1,30 @@
+services:
+  atom1c:
+    image: ${ATOM1C_SMOKE_IMAGE:?Smoke application image name is required}
+    depends_on:
+      feed-fixture:
+        condition: service_healthy
+
+  feed-fixture:
+    build:
+      context: .
+      dockerfile: Dockerfile.smoke-fixture
+    image: ${ATOM1C_SMOKE_FIXTURE_IMAGE:?Smoke fixture image name is required}
+    platform: linux/amd64
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - target: 8080
+        published: "${ATOM1C_FIXTURE_PORT:?Set ATOM1C_FIXTURE_PORT for the smoke fixture}"
+        host_ip: 127.0.0.1
+        protocol: tcp
+    healthcheck:
+      test: ["CMD", "/fixture", "healthcheck"]
+      interval: 1s
+      timeout: 2s
+      retries: 20
+      start_period: 2s

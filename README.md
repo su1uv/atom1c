@@ -12,50 +12,108 @@ A self-hosted Atom/RSS feed aggregator and terminal reader accessed over SSH.
 
 It's a learning project. I'm using it to get properly comfortable with the Charm TUI stack (Bubble Tea, Bubbles, Lipgloss).
 
-## Quick Start
+## Quick Start — Docker Compose
 
-Requires Go 1.26.5 or newer.
+Docker Engine and the Docker Compose plugin are required. Compose builds the
+Linux/amd64 image locally; the container runs as the unprivileged `atom1c` account.
+
+1. Clone the repository and prepare a dedicated public-key file on the server:
+
+   ```sh
+   git clone https://github.com/su1uv/atom1c.git
+   cd atom1c
+   # If you don't already have an SSH client key, create one with ssh-keygen.
+   mkdir -p ~/.config/atom1c
+   cp ~/.ssh/id_ed25519.pub ~/.config/atom1c/authorized_keys
+   chmod 644 ~/.config/atom1c/authorized_keys
+   ```
+
+   Add one plain SSH public-key line per client. The file contains public keys,
+   not private keys. It must be readable by the container's `atom1c` user; Compose
+   mounts it read-only.
+
+2. Configure Compose and start the service:
+
+   ```sh
+   cp .env.example .env
+   ```
+
+   Edit `.env` and set `ATOM1C_AUTHORIZED_KEYS` to the absolute path of the file
+   prepared above, for example `/home/alice/.config/atom1c/authorized_keys`.
+   Then build and start:
+
+   ```sh
+   docker compose up --build -d
+   docker compose logs -f atom1c
+   ```
+
+   Press `ctrl+c` to stop following logs; the server keeps running.
+
+3. Connect from the same machine:
+
+   ```sh
+   ssh -p 23234 atom1c@localhost
+   ```
+
+   The default host binding is loopback-only. For remote connections, set
+   `ATOM1C_SSH_BIND_ADDRESS=0.0.0.0` in `.env`, open TCP port 23234 in the host
+   firewall, and connect as `atom1c@server-host`. Keep the host firewall limited
+   to the clients that should reach SSH.
+
+Compose applies embedded SQLite migrations on startup. Its named `atom1c-data`
+volume stores the database and persistent Ed25519 SSH host key; rebuilding or
+recreating the container retains both. `docker compose down` also preserves the
+volume. **`docker compose down --volumes` deletes the database and host identity.**
+
+Stop and restart the service with:
 
 ```sh
-git clone https://github.com/su1uv/atom1c.git
-cd atom1c
-echo 'GOOSE_DBSTRING=./atom1c.db' > .env
-go run .
+docker compose stop
+docker compose start
 ```
 
-Startup applies database migrations and launches the SSH server. Go 1.26.5 or newer
-and an authorized key are required. By default, the server listens on
-`127.0.0.1:23234`; set `ATOM1C_SSH_ADDR=0.0.0.0:23234` in `.env` to accept
-connections on all IPv4 interfaces.
-
-Before starting, ensure the server account's `~/.ssh/authorized_keys` exists and
-contains the public key for each client that should connect. Create the directory
-with mode `700` and the key file with mode `600` if needed.
-
-Atom1c authenticates public keys from the server account's `~/.ssh/authorized_keys`.
-The SSH login name must match the operating-system account running Atom1c. Add one
-plain public-key line per client; entries with OpenSSH restrictions/options are
-rejected because Atom1c does not enforce those restrictions, and SSH certificate
-entries are not supported. Password login is disabled. Authorized keys are loaded
-at startup, so key-file changes require a restart.
-
-The Ed25519 SSH host key is generated on first startup and retained at
-`$XDG_DATA_HOME/atom1c/ssh_host_ed25519_key`, or
-`~/.local/share/atom1c/ssh_host_ed25519_key` when `XDG_DATA_HOME` is unset. Keep
-this file to preserve the server identity across restarts.
-
-Connect with an interactive terminal (replace `server-account` and `host`):
+Rebuild after changing source with `docker compose up --build -d`. For a stopped
+instance, copy the database and host identity out of the container:
 
 ```sh
-ssh -p 23234 server-account@host
+docker compose stop
+docker compose cp atom1c:/data/atom1c.db ./atom1c.db.backup
+docker compose cp atom1c:/data/ssh_host_ed25519_key ./ssh_host_ed25519_key.backup
+chmod 600 ./atom1c.db.backup ./ssh_host_ed25519_key.backup
 ```
 
-Atom1c accepts interactive PTY shells only; remote commands, SFTP, and port
-forwarding are not enabled. Each SSH connection gets an independent reader UI
-over the same database. Sessions see shared changes on their next data load or
-after reconnecting, while successful feed refreshes automatically update sessions
-that have that feed open. `q` or `ctrl+c` ends only the current reader session.
-`SIGINT`/`SIGTERM` stops the server and active sessions.
+Keep both backup files together and protect the host-key backup as a private key.
+To restore them, stop the service and use a short-lived helper container to copy
+the files into the Compose volume with the required owner and host-key permissions:
+
+```sh
+container_id="$(docker compose ps --all --quiet atom1c)"
+data_volume="$(docker inspect "$container_id" --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}')"
+docker run --rm --network none \
+  --volume "$data_volume:/data" \
+  --volume "$PWD:/backup:ro" \
+  busybox:1.37.0 sh -ec '
+    cp /backup/atom1c.db.backup /data/atom1c.db
+    cp /backup/ssh_host_ed25519_key.backup /data/ssh_host_ed25519_key
+    rm -f /data/atom1c.db-wal /data/atom1c.db-shm
+    chown 10001:10001 /data/atom1c.db /data/ssh_host_ed25519_key
+    chmod 600 /data/atom1c.db /data/ssh_host_ed25519_key
+  '
+docker compose start
+```
+
+Run the restore command from the directory containing the two backup files.
+Restore only a backup made after a clean stop.
+
+The database contains feeds, posts, and extracted article caches. The host key
+preserves the SSH server identity across restore; clients otherwise see a changed
+host-key warning.
+
+The container accepts interactive PTY shells only. Remote commands, SFTP,
+password authentication, and port forwarding are disabled. Each SSH connection
+gets an independent reader UI over shared data. Successful feed refreshes update
+connected sessions that have that feed open. `q` or `ctrl+c` ends only the current
+reader session. Stopping the service cancels active feed work and sessions.
 
 ## Usage
 
@@ -100,6 +158,9 @@ Article reader:
 | `j` / `k` (or down / up) | scroll one line |
 | `PgDown` / `PgUp` | scroll a page |
 | `Home` / `End` | jump to beginning / end |
+| `R` | reload the full website article |
+| `r` | retry a failed article retrieval |
+| `f` | toggle full article / feed preview |
 | `esc` | return to posts, preserving selection, page, and filter |
 | `q` / `ctrl+c` | quit the application |
 
@@ -108,7 +169,8 @@ link, and feed-provided content. Publication times display in UTC; unparsed date
 display as supplied by the feed, and missing dates display as `Unknown`.
 HTML/XHTML headings, lists, quotes, code, and links are rendered for the terminal;
 images appear as text labels. Plain text stays literal. Empty content and
-unsupported content types show notices. Websites and images are not fetched.
+unsupported content types show notices. Article links embedded in feed content
+are displayed but not fetched by this renderer.
 
 Content reflows when the terminal width changes, preserving relative reading
 position where possible. Returning applies the current terminal dimensions to
@@ -146,8 +208,21 @@ go run ./examples/reader https://example.com/article
 
 ## Configuration
 
-`GOOSE_DBSTRING` is required and selects the SQLite database. SSH settings are
-optional; defaults are shown below:
+Docker Compose reads these values from the project `.env` file or the shell
+environment:
+
+| Environment variable | Default | Purpose |
+| --- | --- | --- |
+| `ATOM1C_AUTHORIZED_KEYS` | required | Host path to the dedicated public-key file mounted read-only into the container |
+| `ATOM1C_SSH_BIND_ADDRESS` | `127.0.0.1` | Host interface for the published SSH port; set `0.0.0.0` for remote connections |
+| `ATOM1C_SSH_PORT` | `23234` | Host port published for SSH |
+| `ATOM1C_REFRESH_INTERVAL` | `15m` | Automatic feed refresh interval; `0` disables scheduled refresh |
+
+The container listens on `0.0.0.0:23234` internally and logs in as `atom1c`.
+Compose persists its database and Ed25519 host key in the `atom1c-data` named
+volume. Keep that volume when rebuilding or replacing the container.
+
+For native Go startup, `GOOSE_DBSTRING` is required. Native SSH defaults are:
 
 | Environment variable | Default | Purpose |
 | --- | --- | --- |
@@ -156,11 +231,25 @@ optional; defaults are shown below:
 | `ATOM1C_SSH_HOST_KEY` | `$XDG_DATA_HOME/atom1c/ssh_host_ed25519_key` or `~/.local/share/atom1c/ssh_host_ed25519_key` | Persistent Ed25519 host key |
 | `ATOM1C_REFRESH_INTERVAL` | `15m` | Automatic feed refresh interval; `0` disables scheduled refresh |
 
+To run natively, use Go 1.26.5 or newer, set `GOOSE_DBSTRING` in `.env` or the
+environment, and ensure the current OS account's `~/.ssh/authorized_keys` contains
+plain public-key lines. The SSH login name must match the OS account running the
+server. Start it from the repository root:
+
+```sh
+GOOSE_DBSTRING=./atom1c.db go run .
+```
+
+The first startup applies database migrations and creates the Ed25519 host key.
+Keep that key file to preserve server identity. Authorized keys load at startup,
+so key-file changes require a restart. OpenSSH key restrictions/options and
+certificate entries are rejected; password login is disabled.
+
 Automatic refresh runs one sweep at startup, then waits the configured interval
 after each sweep completes. Feeds refresh sequentially; individual failures are
 logged and do not stop the rest of a sweep. Manual refresh remains available when
-scheduling is disabled. Set a Go duration such as `30m`; malformed and negative
-values are rejected at startup.
+scheduling is disabled. Set a Go duration such as `30m`; `0` disables scheduled
+refresh, while malformed and negative values are rejected at startup.
 
 See `.env.example` for a minimal configuration template.
 
@@ -181,4 +270,26 @@ or retried.
 
 I'm not accepting pull requests for now.
 
-That said, if you spot something wrong or weird, or just have an opinion, please open an issue; I'd like to hear it.
+Run the Go checks from the repository root:
+
+```sh
+go test ./... -timeout 30s
+go vet ./...
+go test ./... -run '^$'
+```
+
+The Docker Compose end-to-end workflow requires Docker Engine and Compose. It
+builds isolated Linux/amd64 images, creates a temporary key and named volume,
+exercises interactive SSH/feed workflows, and removes its test containers,
+network, and volume when finished:
+
+```sh
+go run ./scripts/compose-smoke
+```
+
+That workflow also uses the `busybox:1.37.0` image to verify the documented
+database/host-key backup and restore path. It does not touch the normal Compose
+project or its data volume.
+
+If you spot something wrong or weird, or just have an opinion, please open an
+issue; I'd like to hear it.

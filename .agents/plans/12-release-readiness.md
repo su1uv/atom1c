@@ -104,3 +104,13 @@ and PR requires fresh explicit authorization, a new remote branch, and target
 - The multi-stage scratch image builds for Linux amd64 with Go 1.27.1, contains
   runtime CA certificates, and configures UID/GID 10001. The image is about 9.2 MB;
   Docker build and image metadata inspection passed without warnings.
+- The Compose workflow passes on Docker Engine 29.7.2 / Compose 5.5.1. It verifies
+  missing-key configuration/file errors, read-only root filesystem and key mount,
+  loopback publication, non-root SSH authentication, fresh migrations, Atom/RSS
+  add/refresh/deduplication, concurrent-session reload, no-client scheduled
+  updates, forced container recreation with volume/host-key retention, active
+  refresh cancellation, Compose backup, and restore with correct volume ownership.
+- README setup, configuration, reader controls, remote binding, lifecycle, and
+  backup/restore instructions are documented. The executable and Compose workflows
+  use temporary keys/storage and local fixtures; production placeholder searches
+  found no obsolete mock code.

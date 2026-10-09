@@ -11,6 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/su1uv/atom1c/internal"
 	"github.com/su1uv/atom1c/internal/database"
+	"github.com/su1uv/atom1c/reader"
 )
 
 func NewProgram(s *internal.State) *tea.Program {
@@ -21,8 +22,14 @@ func newModel(s *internal.State) tea.Model {
 	styles := newStyles(false)
 	keys := newListKeyMap()
 	var store feedStore
+	var articleStore articleCacheStore
+	var fetcher articleFetcher
 	if s != nil && s.Db != nil && s.SQLDB != nil {
 		store = stateFeedStore{state: s}
+	}
+	if s != nil && s.Db != nil {
+		articleStore = stateArticleCacheStore{state: s}
+		fetcher = reader.NewFetcher(nil)
 	}
 
 	return model{
@@ -41,6 +48,10 @@ func newModel(s *internal.State) tea.Model {
 		refreshRequests:    make(map[int64]uint64),
 		refreshErrors:      make(map[int64]string),
 		refreshCompleted:   make(map[int64]bool),
+		articleRenderer:    &articleRenderer{build: renderArticleDocument},
+		articleCache:       articleStore,
+		articleFetcher:     fetcher,
+		darkBackground:     true,
 	}
 }
 
@@ -100,23 +111,38 @@ type model struct {
 	postErrorAction  postErrorAction
 	postFailedFeed   database.Feed
 	postRequest      uint64
+	postRecords      map[int64]database.Post
 	refreshing       map[int64]bool
 	refreshRequests  map[int64]uint64
 	refreshErrors    map[int64]string
 	refreshCompleted map[int64]bool
 	refreshRequest   uint64
 	lastRefreshFeed  database.Feed
+	readerOpen       bool
+	reader           articleReader
+	readerRequest    uint64
+	articleRenderer  *articleRenderer
+	articleCache     articleCacheStore
+	articleFetcher   articleFetcher
+	darkBackground   bool
 }
 
 func (m model) Init() tea.Cmd {
+	commands := []tea.Cmd{func() tea.Msg { return tea.RequestBackgroundColor() }}
 	if m.feedPageSize > 0 && m.feedStore != nil {
-		return m.beginFeedPageLoad()
+		commands = append(commands, m.beginFeedPageLoad())
 	}
-	return nil
+	return tea.Batch(commands...)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case articleRenderResult:
+		return m.updateArticleRenderResult(msg)
+	case articleOpenResult:
+		return m.updateArticleOpenResult(msg)
+	case articleFetchResult:
+		return m.updateArticleFetchResult(msg)
 	case feedPageResult:
 		return m.updateFeedPageResult(msg)
 	case postPageResult:
@@ -144,6 +170,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		if m.readerOpen {
+			return m, m.resizeReader(msg.Width, msg.Height)
+		}
 		m.help.SetWidth(max(msg.Width-m.styles.app.GetHorizontalFrameSize(), 1))
 		oldPageSize := m.feedPageSize
 		absoluteIndex := m.feedPage*max(oldPageSize, 1) + m.feedCursor
@@ -164,8 +193,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.beginFeedPageLoad()
 		}
 		return m, nil
+	case tea.BackgroundColorMsg:
+		m.darkBackground = msg.IsDark()
+		if m.readerOpen {
+			return m, m.beginArticleRender()
+		}
+		return m, nil
 
 	case tea.KeyPressMsg:
+		if m.readerOpen {
+			return m.updateReaderKey(msg)
+		}
 		if m.modalOpen {
 			return m.updateModal(msg)
 		}
@@ -180,6 +218,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch {
+		case m.focus == focusPosts && key.Matches(msg, m.keys.openArticle):
+			return m, m.openArticle()
 		case m.focus == focusFeeds && key.Matches(msg, m.keys.filter):
 			m.feedSearching = true
 			return m, m.feedSearch.Focus()
@@ -306,6 +346,9 @@ func (m *model) updateActivePane(msg tea.Msg) tea.Cmd {
 }
 
 func (m model) View() tea.View {
+	if m.readerOpen {
+		return m.readerView()
+	}
 	help := m.help.ShortHelpView([]key.Binding{
 		m.keys.addFeed,
 		m.keys.retry,
@@ -317,6 +360,7 @@ func (m model) View() tea.View {
 		m.keys.filter,
 		m.keys.selectItem,
 		m.keys.deselectItem,
+		m.keys.openArticle,
 		m.keys.togglePagination,
 		m.keys.quit,
 	})

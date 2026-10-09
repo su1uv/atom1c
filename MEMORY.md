@@ -12,28 +12,16 @@ Current problems; update as work resolves them. This is a snapshot, not the road
 - Feed management now uses SQLite with async responsive pages, global name search,
   validated add, recoverable errors, and persistence across restart.
 - Feed refresh is explicit from the UI; no automatic/background refresh exists.
-- No article-reading view exists.
+- Step 8 provides the persisted full-screen reader. Step 9 adds a reusable
+  full-article reader/cache before step 10 SSH; JavaScript/authenticated sites are
+  deferred.
 - User records exist, but no SSH identity/session integration is implemented.
 
 ## Verification baseline
-- On 2026-10-05, `go test ./... -timeout 30s`, `go vet ./...`, and
-  `go test ./... -run '^$'` passed. Feed tests use Atom/RSS fixtures and local
-  HTTP servers, with no external network dependency.
-- Repeated `sqlc generate` was stable during the timestamp work.
-- The timestamp schema is still development-only and has not been deployed.
-  Existing migrations already use TEXT with UTC second-precision CURRENT_TIMESTAMP
-  defaults; no legacy-data backfill migration is needed.
-- Database integration tests cover fresh-schema timestamp round trips, ordering,
-  nullability, and persistence.
-- Step 5 added root-owned UI key routing and shared list-pane behavior. UI tests
-  cover modal focus/draft lifecycle, filtering shortcuts, pane-scoped async results,
-  pagination scope, and pane switching.
-- PR3 corrections verified RSS namespace isolation, common date variants, full
-  XML consumption, and a 10 MiB decoded response cap (including streamed/gzip
-  bodies); failures precede parsing and successful-fetch marking.
-- Step 4 added transactional post upserts and feed-scoped identity; full tests, vet,
-  compile check, sqlc generation, and diff check passed.
-- Step 5 passed full tests, vet, compile check, and diff check.
+- Historical steps 1–5 established timestamp, Atom/RSS parsing, transactional
+  post persistence, and UI input routing; details remain in roadmap plans.
+- Startup migrations are embedded. The timestamp schema has not been deployed;
+  existing source migrations use UTC second-precision TEXT timestamps.
 - Step 6 added SQLite feed paging/global Unicode-insensitive search and validated
   async add/retry; its temporary-database reopen workflow passed. On 2026-10-07,
   full tests, vet, compile check, sqlc generation, and diff check passed.
@@ -42,6 +30,16 @@ Current problems; update as work resolves them. This is a snapshot, not the road
   Atom/RSS UI workflows use local HTTP servers and temporary SQLite; full tests,
   vet, compile check, and diff check passed on 2026-10-07.
 - Passing checks do not establish functional completeness.
+- Step 8 passed full tests, UI race tests, vet, compile, and diff checks on
+  2026-10-08. Atom/RSS temporary-SQLite workflows cover reading, refresh snapshot
+  isolation, reopening updated articles, and database reopen. A PTY smoke checked
+  scroll/page/jump keys, resizing, return, and clean quit; review corrections pass.
+- Reader rendering serializes/coalesces work and caches the immutable document;
+  HTML/XHTML regressions cover whitespace, CDATA, indentation, and size growth.
+- Step 9 delivers independent `reader`/`reader/view` packages, public HTML
+  extraction, SSRF-aware bounded HTTP, Markdown presentation, and SQLite caching.
+  Full tests, UI race tests, vet, compile, sqlc, PTY smoke, and review passed on
+  2026-10-08. Next is step 10 SSH.
 
 ## Local tooling
 - `.opencode/` and non-plan `.agents/` files are ignored and untracked; roadmap

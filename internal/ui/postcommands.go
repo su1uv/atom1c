@@ -40,6 +40,7 @@ type feedRefreshResult struct {
 
 func (m *model) openFeed(selected item) tea.Cmd {
 	if selected.id != m.openFeedID {
+		m.postRecords = nil
 		m.posts.list.ResetFilter()
 		_ = m.posts.list.SetItems(nil)
 		m.posts.list.ResetSelected()
@@ -97,6 +98,10 @@ func (m model) updatePostPageResult(msg postPageResult) (tea.Model, tea.Cmd) {
 		m.postErr = "Could not load posts: " + msg.err.Error()
 		m.postErrorAction = postRetryRead
 		return m, nil
+	}
+	m.postRecords = make(map[int64]database.Post, len(msg.posts))
+	for _, post := range msg.posts {
+		m.postRecords[post.ID] = post
 	}
 	items := postItems(msg.posts)
 	if filterCmd := m.posts.list.SetItems(items); filterCmd != nil {

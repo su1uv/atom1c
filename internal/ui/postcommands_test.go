@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/su1uv/atom1c/internal"
 	"github.com/su1uv/atom1c/internal/database"
 	"github.com/su1uv/atom1c/internal/handlers"
@@ -306,6 +307,7 @@ func TestRefreshAndReadWorkflowPersistsAtomAndRSSPosts(t *testing.T) {
 			}
 
 			m := newModel(state).(model)
+			m.articleCache, m.articleFetcher = nil, nil
 			m, cmd := applyMessage(m, tea.WindowSizeMsg{Width: 100, Height: 20})
 			m, _ = applyMessage(m, runCommand(t, cmd))
 			if selected, ok := m.feeds.list.SelectedItem().(item); !ok || selected.id != storedFeed.ID {
@@ -325,11 +327,29 @@ func TestRefreshAndReadWorkflowPersistsAtomAndRSSPosts(t *testing.T) {
 			if got := m.posts.list.Items()[0].(item).name; got != "Second" {
 				t.Fatalf("initial newest post = %q, want Second", got)
 			}
+			m.posts.list.Select(1)
+			m = openReader(t, m)
+			plainView := ansi.Strip(m.View().Content)
+			if !strings.Contains(plainView, "Original") || !strings.Contains(plainView, "first body") || !strings.Contains(plainView, "Source: "+tc.name) {
+				t.Fatalf("persisted article view = %q", m.View().Content)
+			}
+			m = updateModel(m, press("esc", tea.KeyEscape))
 
 			mu.Lock()
 			body = tc.body(tc.updated, true)
 			mu.Unlock()
-			m = refreshAndReload(t, m)
+			m, refreshCmd := applyMessage(m, press("R", 'R'))
+			m = openReader(t, m)
+			m = runUICommands(t, m, refreshCmd)
+			if !strings.Contains(m.reader.viewport.GetContent(), "Original") {
+				t.Fatal("refresh disturbed persisted article snapshot")
+			}
+			m = updateModel(m, press("esc", tea.KeyEscape))
+			m = openReader(t, m)
+			if !strings.Contains(ansi.Strip(m.reader.viewport.GetContent()), tc.updated) {
+				t.Fatal("reopening article did not show persisted update")
+			}
+			m = updateModel(m, press("esc", tea.KeyEscape))
 			if got := len(m.posts.list.Items()); got != 3 {
 				t.Fatalf("updated post count = %d, want 3 without duplicates", got)
 			}
@@ -352,12 +372,19 @@ func TestRefreshAndReadWorkflowPersistsAtomAndRSSPosts(t *testing.T) {
 			reopened := openUIWorkflowDB(t, dbPath)
 			defer reopened.Close()
 			restarted := newModel(&internal.State{Db: database.New(reopened), SQLDB: reopened}).(model)
+			restarted.articleCache, restarted.articleFetcher = nil, nil
 			restarted, cmd = applyMessage(restarted, tea.WindowSizeMsg{Width: 100, Height: 20})
 			restarted, _ = applyMessage(restarted, runCommand(t, cmd))
 			restarted, cmd = applyMessage(restarted, press("tab", tea.KeyTab))
 			restarted, _ = applyMessage(restarted, runCommand(t, cmd))
 			if len(restarted.posts.list.Items()) != 3 || restarted.posts.list.Items()[0].(item).name != "Third" {
 				t.Fatalf("posts after reopening database = %#v", restarted.posts.list.Items())
+			}
+			restarted.posts.list.Select(2)
+			restarted = openReader(t, restarted)
+			plainView = ansi.Strip(restarted.View().Content)
+			if !strings.Contains(plainView, tc.updated) || !strings.Contains(plainView, "first body") {
+				t.Fatalf("article after database reopen = %q", restarted.View().Content)
 			}
 		})
 	}

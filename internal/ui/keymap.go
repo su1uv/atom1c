@@ -15,10 +15,12 @@ type listKeyMap struct {
 	addFeed          key.Binding
 	retry            key.Binding
 	refresh          key.Binding
+	openArticle      key.Binding
 }
 
 func newListKeyMap() *listKeyMap {
 	return &listKeyMap{
+		openArticle: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "read post")),
 		addFeed: key.NewBinding(
 			key.WithKeys("a"),
 			key.WithHelp("a", "add feed"),

@@ -110,6 +110,8 @@ and PR requires fresh explicit authorization, a new remote branch, and target
   add/refresh/deduplication, concurrent-session reload, no-client scheduled
   updates, forced container recreation with volume/host-key retention, active
   refresh cancellation, Compose backup, and restore with correct volume ownership.
+  The smoke runner uses Docker-assigned ephemeral ports and handles SIGINT/SIGTERM
+  with project-scoped cleanup; manual SIGTERM interruption left no test resources.
 - README setup, configuration, reader controls, remote binding, lifecycle, and
   backup/restore instructions are documented. The executable and Compose workflows
   use temporary keys/storage and local fixtures; production placeholder searches

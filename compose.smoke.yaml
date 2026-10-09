@@ -19,7 +19,7 @@ services:
       - no-new-privileges:true
     ports:
       - target: 8080
-        published: "${ATOM1C_FIXTURE_PORT:?Set ATOM1C_FIXTURE_PORT for the smoke fixture}"
+        published: "${ATOM1C_FIXTURE_PORT:-0}"
         host_ip: 127.0.0.1
         protocol: tcp
     healthcheck:

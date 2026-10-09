@@ -16,11 +16,13 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/charmbracelet/x/ansi"
@@ -36,13 +38,18 @@ const (
 )
 
 func main() {
-	if err := run(); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		fmt.Fprintln(os.Stderr, "compose smoke:", err)
 		os.Exit(1)
 	}
 }
 
-func run() (resultErr error) {
+func run(ctx context.Context) (resultErr error) {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	_, sourceFile, _, ok := runtime.Caller(0)
 	if !ok {
 		return errors.New("resolve smoke-test source path")
@@ -66,43 +73,33 @@ func run() (resultErr error) {
 	if err := os.WriteFile(keysPath, gossh.MarshalAuthorizedKey(signer.PublicKey()), 0o644); err != nil {
 		return fmt.Errorf("write public authorized key: %w", err)
 	}
-	sshPort, err := freePort()
-	if err != nil {
-		return err
-	}
-	fixturePort, err := freePort()
-	if err != nil {
-		return err
-	}
-	for fixturePort == sshPort {
-		fixturePort, err = freePort()
-		if err != nil {
-			return err
-		}
-	}
 	project := fmt.Sprintf("atom1c-smoke-%d-%d", os.Getpid(), time.Now().UnixNano())
 	compose := composeRunner{
+		ctx:          ctx,
 		root:         projectRoot,
 		project:      project,
 		authorized:   keysPath,
-		port:         strconv.Itoa(sshPort),
-		fixturePort:  strconv.Itoa(fixturePort),
 		appImage:     project + ":local",
 		fixtureImage: project + "-fixture:local",
 	}
 	defer func() {
+		cleanup := composeRunner{
+			root: compose.root, project: compose.project, authorized: compose.authorized,
+			appImage: compose.appImage, fixtureImage: compose.fixtureImage,
+		}
 		if resultErr != nil {
-			if logs, logsErr := compose.command("1h", "logs", "--no-color", "--tail", "100", serviceName); logsErr == nil {
+			if logs, logsErr := cleanup.command("1h", "logs", "--no-color", "--tail", "100", serviceName); logsErr == nil {
 				fmt.Fprintln(os.Stderr, "container logs:\n"+logs)
 			}
 		}
-		output, err := compose.command("1h", "down", "--volumes", "--remove-orphans")
+		output, err := cleanup.command("1h", "down", "--volumes", "--remove-orphans")
 		if err != nil {
 			cleanupErr := fmt.Errorf("remove smoke-test Compose project: %w\n%s", err, output)
 			resultErr = errors.Join(resultErr, cleanupErr)
 		}
 		removeCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
+		_ = exec.CommandContext(removeCtx, "docker", "rm", "--force", compose.project+"-restore").Run()
 		_ = exec.CommandContext(removeCtx, "docker", "image", "rm", "--force", compose.appImage, compose.fixtureImage).Run()
 	}()
 
@@ -125,7 +122,16 @@ func run() (resultErr error) {
 	if err != nil {
 		return err
 	}
-	if err := verifyContainerConfiguration(containerID, sshPort); err != nil {
+	sshPort, err := verifyContainerConfiguration(ctx, containerID)
+	if err != nil {
+		return err
+	}
+	fixtureID, err := compose.serviceContainerID("1h", "feed-fixture")
+	if err != nil {
+		return err
+	}
+	fixturePort, err := verifyPublishedPort(ctx, fixtureID, 8080)
+	if err != nil {
 		return err
 	}
 
@@ -143,7 +149,7 @@ func run() (resultErr error) {
 	}
 	client, err := compose.waitForSSH(sshPort, signer, hostKeyCallback)
 	if err != nil {
-		return err
+		return fmt.Errorf("connect after initial container startup: %w", err)
 	}
 
 	atomSession, err := addAndRefreshFeed(client, compose, workDir, "Smoke Atom", feedBaseURL+"/atom.xml", "ATOM_V1")
@@ -158,7 +164,7 @@ func run() (resultErr error) {
 		return err
 	}
 
-	secondSession, err := openTerminal(client)
+	secondSession, err := openTerminal(ctx, client)
 	if err != nil {
 		_ = atomSession.close()
 		_ = rssSession.close()
@@ -175,7 +181,7 @@ func run() (resultErr error) {
 		return fmt.Errorf("open the same feed in a second SSH session: %w", err)
 	}
 
-	if err := setFixtureTitle(fixturePort, "atom", "UPDATED_V2"); err != nil {
+	if err := setFixtureTitle(ctx, fixturePort, "atom", "UPDATED_V2"); err != nil {
 		return err
 	}
 	if err := atomSession.send("R"); err != nil {
@@ -207,10 +213,10 @@ func run() (resultErr error) {
 		return fmt.Errorf("close SSH connection before offline refresh: %w", err)
 	}
 
-	if err := setFixtureTitle(fixturePort, "atom", "SCHEDULED_V3"); err != nil {
+	if err := setFixtureTitle(ctx, fixturePort, "atom", "SCHEDULED_V3"); err != nil {
 		return err
 	}
-	if err := setFixtureTitle(fixturePort, "rss", "SCHEDULED_RSS_V2"); err != nil {
+	if err := setFixtureTitle(ctx, fixturePort, "rss", "SCHEDULED_RSS_V2"); err != nil {
 		return err
 	}
 	if output, err := compose.command("1s", "up", "--detach", "--no-build", "--force-recreate", serviceName); err != nil {
@@ -223,6 +229,10 @@ func run() (resultErr error) {
 	if containerID == initialContainerID {
 		return errors.New("Compose did not recreate the application container")
 	}
+	sshPort, err = verifyContainerConfiguration(ctx, containerID)
+	if err != nil {
+		return err
+	}
 	if _, err := compose.waitForDatabase(containerID, workDir, func(snapshot databaseSnapshot) bool {
 		return snapshot.hasPost("Smoke Atom", "SCHEDULED_V3") &&
 			snapshot.hasPost("Smoke RSS", "SCHEDULED_RSS_V2") &&
@@ -231,15 +241,15 @@ func run() (resultErr error) {
 	}); err != nil {
 		return fmt.Errorf("verify automatic refresh persisted with no connected SSH clients: %w", err)
 	}
-	if err := verifyPersistentHostKey(containerID, workDir); err != nil {
+	if err := verifyPersistentHostKey(ctx, containerID, workDir); err != nil {
 		return err
 	}
 
 	client, err = compose.waitForSSH(sshPort, signer, hostKeyCallback)
 	if err != nil {
-		return err
+		return fmt.Errorf("reconnect after container recreation: %w", err)
 	}
-	postRestartSession, err := openTerminal(client)
+	postRestartSession, err := openTerminal(ctx, client)
 	if err != nil {
 		_ = client.Close()
 		return err
@@ -263,16 +273,16 @@ func run() (resultErr error) {
 	if err := client.Close(); err != nil {
 		return fmt.Errorf("close post-restart SSH connection: %w", err)
 	}
-	if err := setFixtureBlocked(fixturePort, true); err != nil {
+	if err := setFixtureBlocked(ctx, fixturePort, true); err != nil {
 		return err
 	}
-	if err := waitForFixtureRequest(fixturePort, true); err != nil {
+	if err := waitForFixtureRequest(ctx, fixturePort, true); err != nil {
 		return fmt.Errorf("wait for scheduled refresh to enter the blocking fixture: %w", err)
 	}
 	if output, err := compose.command("1s", "stop", "--timeout", "20", serviceName); err != nil {
 		return fmt.Errorf("gracefully stop container: %w\n%s", err, output)
 	}
-	if err := waitForFixtureRequest(fixturePort, false); err != nil {
+	if err := waitForFixtureRequest(ctx, fixturePort, false); err != nil {
 		return fmt.Errorf("verify container shutdown canceled the active feed request: %w", err)
 	}
 
@@ -295,7 +305,7 @@ func run() (resultErr error) {
 	if keyInfo.Mode().Perm()&0o077 != 0 {
 		return fmt.Errorf("SSH host-key backup permissions = %o, want owner-only", keyInfo.Mode().Perm())
 	}
-	snapshot, err := readDatabaseSnapshot(databaseBackup)
+	snapshot, err := readDatabaseSnapshot(ctx, databaseBackup)
 	if err != nil {
 		return fmt.Errorf("read final stopped-container database backup: %w", err)
 	}
@@ -308,20 +318,28 @@ func run() (resultErr error) {
 	if snapshot.migration != 4 {
 		return fmt.Errorf("final migration version = %d, want 4", snapshot.migration)
 	}
-	if err := setFixtureBlocked(fixturePort, false); err != nil {
+	if err := setFixtureBlocked(ctx, fixturePort, false); err != nil {
 		return err
 	}
-	if err := restoreDatabaseBackup(containerID, workDir); err != nil {
+	if err := restoreDatabaseBackup(ctx, containerID, workDir, project); err != nil {
 		return err
 	}
 	if output, err := compose.command("1s", "start", serviceName); err != nil {
 		return fmt.Errorf("start service after backup restore: %w\n%s", err, output)
 	}
-	client, err = compose.waitForSSH(sshPort, signer, hostKeyCallback)
+	containerID, err = compose.containerID("1s")
 	if err != nil {
 		return err
 	}
-	restoredSession, err := openTerminal(client)
+	sshPort, err = verifyContainerConfiguration(ctx, containerID)
+	if err != nil {
+		return err
+	}
+	client, err = compose.waitForSSH(sshPort, signer, hostKeyCallback)
+	if err != nil {
+		return fmt.Errorf("reconnect after backup restore: %w", err)
+	}
+	restoredSession, err := openTerminal(ctx, client)
 	if err != nil {
 		_ = client.Close()
 		return err
@@ -355,11 +373,10 @@ func run() (resultErr error) {
 }
 
 type composeRunner struct {
+	ctx          context.Context
 	root         string
 	project      string
 	authorized   string
-	port         string
-	fixturePort  string
 	appImage     string
 	fixtureImage string
 }
@@ -373,17 +390,24 @@ func (runner composeRunner) args() []string {
 }
 
 func (runner composeRunner) command(interval string, args ...string) (string, error) {
+	return runner.commandWithContext(runner.ctx, interval, args...)
+}
+
+func (runner composeRunner) commandWithContext(parent context.Context, interval string, args ...string) (string, error) {
+	if parent == nil {
+		parent = context.Background()
+	}
 	commandArgs := append(runner.args(), args...)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(parent, 5*time.Minute)
 	defer cancel()
 	command := exec.CommandContext(ctx, "docker", commandArgs...)
 	command.Dir = runner.root
 	command.Env = replaceEnvironment(map[string]string{
 		"ATOM1C_AUTHORIZED_KEYS":     runner.authorized,
-		"ATOM1C_SSH_PORT":            runner.port,
+		"ATOM1C_SSH_PORT":            "0",
 		"ATOM1C_SSH_BIND_ADDRESS":    "127.0.0.1",
 		"ATOM1C_REFRESH_INTERVAL":    interval,
-		"ATOM1C_FIXTURE_PORT":        runner.fixturePort,
+		"ATOM1C_FIXTURE_PORT":        "0",
 		"ATOM1C_SMOKE_IMAGE":         runner.appImage,
 		"ATOM1C_SMOKE_FIXTURE_IMAGE": runner.fixtureImage,
 	})
@@ -393,16 +417,20 @@ func (runner composeRunner) command(interval string, args ...string) (string, er
 
 func (runner composeRunner) checkMissingAuthorizedKeyEnvironment() error {
 	commandArgs := append(runner.args(), "config", "--quiet")
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	parent := runner.ctx
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, "docker", commandArgs...)
 	command.Dir = runner.root
 	command.Env = replaceEnvironment(map[string]string{
 		"ATOM1C_AUTHORIZED_KEYS":     "",
-		"ATOM1C_SSH_PORT":            runner.port,
+		"ATOM1C_SSH_PORT":            "0",
 		"ATOM1C_SSH_BIND_ADDRESS":    "127.0.0.1",
 		"ATOM1C_REFRESH_INTERVAL":    "1h",
-		"ATOM1C_FIXTURE_PORT":        runner.fixturePort,
+		"ATOM1C_FIXTURE_PORT":        "0",
 		"ATOM1C_SMOKE_IMAGE":         runner.appImage,
 		"ATOM1C_SMOKE_FIXTURE_IMAGE": runner.fixtureImage,
 	})
@@ -416,8 +444,8 @@ func (runner composeRunner) checkMissingAuthorizedKeyEnvironment() error {
 func (runner composeRunner) checkMissingAuthorizedKeyFile() error {
 	missingPath := filepath.Join(filepath.Dir(runner.authorized), "missing-authorized-keys")
 	command := composeRunner{
-		root: runner.root, project: runner.project, authorized: missingPath, port: runner.port,
-		fixturePort: runner.fixturePort, appImage: runner.appImage, fixtureImage: runner.fixtureImage,
+		ctx: runner.ctx, root: runner.root, project: runner.project, authorized: missingPath,
+		appImage: runner.appImage, fixtureImage: runner.fixtureImage,
 	}
 	output, err := command.command("1h", "create", "--no-build", serviceName)
 	if err == nil || !(strings.Contains(strings.ToLower(output), "no such file") || strings.Contains(strings.ToLower(output), "not exist")) {
@@ -427,13 +455,17 @@ func (runner composeRunner) checkMissingAuthorizedKeyFile() error {
 }
 
 func (runner composeRunner) containerID(interval string) (string, error) {
-	output, err := runner.command(interval, "ps", "--all", "--quiet", serviceName)
+	return runner.serviceContainerID(interval, serviceName)
+}
+
+func (runner composeRunner) serviceContainerID(interval, service string) (string, error) {
+	output, err := runner.command(interval, "ps", "--all", "--quiet", service)
 	if err != nil {
-		return "", fmt.Errorf("inspect Compose container: %w\n%s", err, output)
+		return "", fmt.Errorf("inspect Compose service %q: %w\n%s", service, err, output)
 	}
 	id := strings.TrimSpace(output)
 	if id == "" {
-		return "", errors.New("Compose did not report an application container ID")
+		return "", fmt.Errorf("Compose did not report a container ID for service %q", service)
 	}
 	return id, nil
 }
@@ -443,6 +475,9 @@ func (runner composeRunner) waitForSSH(port int, signer gossh.Signer, hostKeyCal
 	deadline := time.Now().Add(30 * time.Second)
 	var lastErr error
 	for time.Now().Before(deadline) {
+		if err := runner.ctx.Err(); err != nil {
+			return nil, err
+		}
 		client, err := gossh.Dial("tcp", address, &gossh.ClientConfig{
 			User:            sshUser,
 			Auth:            []gossh.AuthMethod{gossh.PublicKeys(signer)},
@@ -456,7 +491,9 @@ func (runner composeRunner) waitForSSH(port int, signer gossh.Signer, hostKeyCal
 		if strings.Contains(err.Error(), "SSH host identity changed") {
 			return nil, err
 		}
-		time.Sleep(100 * time.Millisecond)
+		if !waitContext(runner.ctx, 100*time.Millisecond) {
+			return nil, runner.ctx.Err()
+		}
 	}
 	logs, _ := runner.command("1h", "logs", "--no-color", "--tail", "100", serviceName)
 	return nil, fmt.Errorf("SSH did not become ready: %v\n%s", lastErr, logs)
@@ -466,6 +503,9 @@ func (runner composeRunner) waitForDatabase(containerID, workDir string, accept 
 	deadline := time.Now().Add(30 * time.Second)
 	var lastErr error
 	for time.Now().Before(deadline) {
+		if err := runner.ctx.Err(); err != nil {
+			return databaseSnapshot{}, err
+		}
 		snapshot, err := runner.copyDatabase(containerID, workDir)
 		if err == nil && accept(snapshot) {
 			return snapshot, nil
@@ -475,7 +515,9 @@ func (runner composeRunner) waitForDatabase(containerID, workDir string, accept 
 		} else {
 			lastErr = fmt.Errorf("current database state: %#v", snapshot.posts)
 		}
-		time.Sleep(150 * time.Millisecond)
+		if !waitContext(runner.ctx, 150*time.Millisecond) {
+			return databaseSnapshot{}, runner.ctx.Err()
+		}
 	}
 	return databaseSnapshot{}, fmt.Errorf("database did not reach expected state: %w", lastErr)
 }
@@ -483,17 +525,21 @@ func (runner composeRunner) waitForDatabase(containerID, workDir string, accept 
 func (runner composeRunner) copyDatabase(containerID, workDir string) (databaseSnapshot, error) {
 	path := filepath.Join(workDir, "snapshot.db")
 	_ = os.Remove(path)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	parent := runner.ctx
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
 	defer cancel()
 	copy := exec.CommandContext(ctx, "docker", "cp", containerID+":/data/atom1c.db", path)
 	output, err := copy.CombinedOutput()
 	if err != nil {
 		return databaseSnapshot{}, fmt.Errorf("docker cp database: %w: %s", err, output)
 	}
-	return readDatabaseSnapshot(path)
+	return readDatabaseSnapshot(runner.ctx, path)
 }
 
-func readDatabaseSnapshot(path string) (databaseSnapshot, error) {
+func readDatabaseSnapshot(parent context.Context, path string) (databaseSnapshot, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return databaseSnapshot{}, fmt.Errorf("open copied SQLite database: %w", err)
@@ -501,7 +547,10 @@ func readDatabaseSnapshot(path string) (databaseSnapshot, error) {
 	defer db.Close()
 	db.SetMaxOpenConns(1)
 	queries := database.New(db)
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(parent, 2*time.Second)
 	defer cancel()
 	feeds, err := queries.GetFeedsForRefresh(ctx)
 	if err != nil {
@@ -554,7 +603,7 @@ func (snapshot databaseSnapshot) hasSuccessfulFetch(feed string) bool {
 }
 
 func addAndRefreshFeed(client *gossh.Client, compose composeRunner, workDir, name, url, title string) (*terminal, error) {
-	terminal, err := openTerminal(client)
+	terminal, err := openTerminal(compose.ctx, client)
 	if err != nil {
 		return nil, err
 	}
@@ -590,7 +639,7 @@ func addAndRefreshFeed(client *gossh.Client, compose composeRunner, workDir, nam
 	return terminal, nil
 }
 
-func openTerminal(client *gossh.Client) (*terminal, error) {
+func openTerminal(ctx context.Context, client *gossh.Client) (*terminal, error) {
 	session, err := client.NewSession()
 	if err != nil {
 		return nil, fmt.Errorf("open SSH session: %w", err)
@@ -613,13 +662,14 @@ func openTerminal(client *gossh.Client) (*terminal, error) {
 		_ = session.Close()
 		return nil, fmt.Errorf("start SSH interactive shell: %w", err)
 	}
-	terminal := &terminal{session: session, stdin: stdin, output: &lockedBuffer{}, done: make(chan error, 1)}
+	terminal := &terminal{ctx: ctx, session: session, stdin: stdin, output: &lockedBuffer{}, done: make(chan error, 1)}
 	go func() { _, _ = io.Copy(terminal.output, stdout) }()
 	go func() { terminal.done <- session.Wait() }()
 	return terminal, nil
 }
 
 type terminal struct {
+	ctx     context.Context
 	session *gossh.Session
 	stdin   io.WriteCloser
 	output  *lockedBuffer
@@ -636,20 +686,31 @@ func (terminal *terminal) send(keys string) error {
 func (terminal *terminal) waitForText(text string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
+		if err := terminal.ctx.Err(); err != nil {
+			return err
+		}
 		if strings.Contains(ansi.Strip(terminal.output.String()), text) {
 			return nil
 		}
 		select {
+		case <-terminal.ctx.Done():
+			return terminal.ctx.Err()
 		case err := <-terminal.done:
 			return fmt.Errorf("SSH reader ended before displaying %q: %v", text, err)
 		default:
 		}
-		time.Sleep(50 * time.Millisecond)
+		if !waitContext(terminal.ctx, 50*time.Millisecond) {
+			return terminal.ctx.Err()
+		}
 	}
 	return fmt.Errorf("timed out waiting for %q in terminal output: %q", text, terminal.output.String())
 }
 
 func (terminal *terminal) close() error {
+	if err := terminal.ctx.Err(); err != nil {
+		_ = terminal.session.Close()
+		return nil
+	}
 	_ = terminal.send("q")
 	select {
 	case err := <-terminal.done:
@@ -681,12 +742,12 @@ func (buffer *lockedBuffer) String() string {
 	return buffer.buffer.String()
 }
 
-func setFixtureTitle(port int, format, title string) error {
+func setFixtureTitle(parent context.Context, port int, format, title string) error {
 	path := map[string]string{"atom": "/set/atom", "rss": "/set/rss"}[format]
 	if path == "" {
 		return fmt.Errorf("unsupported fixture format %q", format)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(parent, 3*time.Second)
 	defer cancel()
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		"http://127.0.0.1:"+strconv.Itoa(port)+path+"?title="+url.QueryEscape(title), nil)
@@ -705,9 +766,11 @@ func setFixtureTitle(port int, format, title string) error {
 	return nil
 }
 
-func setFixtureBlocked(port int, blocked bool) error {
+func setFixtureBlocked(parent context.Context, port int, blocked bool) error {
 	value := strconv.FormatBool(blocked)
-	request, err := http.NewRequest(http.MethodGet,
+	ctx, cancel := context.WithTimeout(parent, 3*time.Second)
+	defer cancel()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		"http://127.0.0.1:"+strconv.Itoa(port)+"/set/block-atom?enabled="+value, nil)
 	if err != nil {
 		return fmt.Errorf("create blocked-feed fixture request: %w", err)
@@ -724,14 +787,18 @@ func setFixtureBlocked(port int, blocked bool) error {
 	return nil
 }
 
-func waitForFixtureRequest(port int, waitingForActive bool) error {
+func waitForFixtureRequest(ctx context.Context, port int, waitingForActive bool) error {
 	deadline := time.Now().Add(10 * time.Second)
 	var lastState struct {
 		AtomActive   int `json:"atom_active"`
 		AtomCanceled int `json:"atom_canceled"`
 	}
 	for time.Now().Before(deadline) {
-		request, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:"+strconv.Itoa(port)+"/state", nil)
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		requestCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		request, err := http.NewRequestWithContext(requestCtx, http.MethodGet, "http://127.0.0.1:"+strconv.Itoa(port)+"/state", nil)
 		if err == nil {
 			response, requestErr := (&http.Client{Timeout: 2 * time.Second}).Do(request)
 			if requestErr == nil {
@@ -739,23 +806,18 @@ func waitForFixtureRequest(port int, waitingForActive bool) error {
 				_ = response.Body.Close()
 				if decodeErr == nil {
 					if waitingForActive && lastState.AtomActive > 0 || !waitingForActive && lastState.AtomCanceled > 0 {
+						cancel()
 						return nil
 					}
 				}
 			}
 		}
-		time.Sleep(100 * time.Millisecond)
+		cancel()
+		if !waitContext(ctx, 100*time.Millisecond) {
+			return ctx.Err()
+		}
 	}
 	return fmt.Errorf("timed out waiting for fixture request state (active=%d canceled=%d)", lastState.AtomActive, lastState.AtomCanceled)
-}
-
-func freePort() (int, error) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, fmt.Errorf("reserve SSH host port: %w", err)
-	}
-	defer listener.Close()
-	return listener.Addr().(*net.TCPAddr).Port, nil
 }
 
 func replaceEnvironment(overrides map[string]string) []string {
@@ -774,13 +836,13 @@ func replaceEnvironment(overrides map[string]string) []string {
 	return environment
 }
 
-func verifyContainerConfiguration(containerID string, sshPort int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+func verifyContainerConfiguration(parent context.Context, containerID string) (int, error) {
+	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, "docker", "inspect", containerID)
 	output, err := command.Output()
 	if err != nil {
-		return fmt.Errorf("inspect application container: %w", err)
+		return 0, fmt.Errorf("inspect application container: %w", err)
 	}
 	var records []struct {
 		Config struct {
@@ -803,14 +865,14 @@ func verifyContainerConfiguration(containerID string, sshPort int) error {
 		}
 	}
 	if err := json.Unmarshal(output, &records); err != nil {
-		return fmt.Errorf("decode container inspection: %w", err)
+		return 0, fmt.Errorf("decode container inspection: %w", err)
 	}
 	if len(records) != 1 {
-		return fmt.Errorf("container inspection returned %d records", len(records))
+		return 0, fmt.Errorf("container inspection returned %d records", len(records))
 	}
 	container := records[0]
 	if container.Config.User != "10001:10001" || !container.HostConfig.ReadonlyRootfs {
-		return fmt.Errorf("container security settings: user=%q read-only-rootfs=%t", container.Config.User, container.HostConfig.ReadonlyRootfs)
+		return 0, fmt.Errorf("container security settings: user=%q read-only-rootfs=%t", container.Config.User, container.HostConfig.ReadonlyRootfs)
 	}
 	dataVolume, keyMount := false, false
 	for _, mount := range container.Mounts {
@@ -822,18 +884,55 @@ func verifyContainerConfiguration(containerID string, sshPort int) error {
 		}
 	}
 	if !dataVolume || !keyMount {
-		return fmt.Errorf("container mounts must include writable named /data and read-only authorized_keys bind mount (data=%t keys=%t)", dataVolume, keyMount)
+		return 0, fmt.Errorf("container mounts must include writable named /data and read-only authorized_keys bind mount (data=%t keys=%t)", dataVolume, keyMount)
 	}
 	portBindings := container.NetworkSettings.Ports[fmt.Sprintf("%d/tcp", sshContainerPort)]
-	if len(portBindings) != 1 || portBindings[0].HostIP != "127.0.0.1" || portBindings[0].HostPort != strconv.Itoa(sshPort) {
-		return fmt.Errorf("SSH host binding = %#v, want 127.0.0.1:%d", portBindings, sshPort)
+	if len(portBindings) != 1 || portBindings[0].HostIP != "127.0.0.1" {
+		return 0, fmt.Errorf("SSH host binding = %#v, want one loopback binding", portBindings)
 	}
-	return nil
+	port, err := strconv.Atoi(portBindings[0].HostPort)
+	if err != nil || port < 1 || port > 65535 {
+		return 0, fmt.Errorf("invalid published SSH host port %q", portBindings[0].HostPort)
+	}
+	return port, nil
 }
 
-func verifyPersistentHostKey(containerID, workDir string) error {
+func verifyPublishedPort(parent context.Context, containerID string, containerPort int) (int, error) {
+	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, "docker", "inspect", containerID)
+	output, err := command.Output()
+	if err != nil {
+		return 0, fmt.Errorf("inspect published fixture port: %w", err)
+	}
+	var records []struct {
+		NetworkSettings struct {
+			Ports map[string][]struct {
+				HostIP   string `json:"HostIp"`
+				HostPort string
+			} `json:"Ports"`
+		}
+	}
+	if err := json.Unmarshal(output, &records); err != nil {
+		return 0, fmt.Errorf("decode fixture container inspection: %w", err)
+	}
+	if len(records) != 1 {
+		return 0, fmt.Errorf("fixture container inspection returned %d records", len(records))
+	}
+	bindings := records[0].NetworkSettings.Ports[fmt.Sprintf("%d/tcp", containerPort)]
+	if len(bindings) != 1 || bindings[0].HostIP != "127.0.0.1" {
+		return 0, fmt.Errorf("fixture host binding = %#v, want one loopback binding", bindings)
+	}
+	port, err := strconv.Atoi(bindings[0].HostPort)
+	if err != nil || port < 1 || port > 65535 {
+		return 0, fmt.Errorf("invalid published fixture host port %q", bindings[0].HostPort)
+	}
+	return port, nil
+}
+
+func verifyPersistentHostKey(ctx context.Context, containerID, workDir string) error {
 	path := filepath.Join(workDir, "host-key")
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, "docker", "cp", containerID+":/data/ssh_host_ed25519_key", path)
 	output, err := command.CombinedOutput()
@@ -850,8 +949,8 @@ func verifyPersistentHostKey(containerID, workDir string) error {
 	return nil
 }
 
-func restoreDatabaseBackup(containerID, workDir string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+func restoreDatabaseBackup(parent context.Context, containerID, workDir, project string) error {
+	ctx, cancel := context.WithTimeout(parent, 5*time.Minute)
 	defer cancel()
 	inspect := exec.CommandContext(ctx, "docker", "inspect", "--format",
 		`{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}`, containerID)
@@ -868,7 +967,7 @@ cp /backup/ssh_host_ed25519_key.backup /data/ssh_host_ed25519_key
 rm -f /data/atom1c.db-wal /data/atom1c.db-shm
 chown 10001:10001 /data/atom1c.db /data/ssh_host_ed25519_key
 chmod 600 /data/atom1c.db /data/ssh_host_ed25519_key`
-	command := exec.CommandContext(ctx, "docker", "run", "--rm", "--network", "none",
+	command := exec.CommandContext(ctx, "docker", "run", "--rm", "--name", project+"-restore", "--network", "none",
 		"--volume", volume+":/data", "--volume", workDir+":/backup:ro",
 		"busybox:1.37.0", "sh", "-ec", copy)
 	output, err := command.CombinedOutput()
@@ -876,4 +975,19 @@ chmod 600 /data/atom1c.db /data/ssh_host_ed25519_key`
 		return fmt.Errorf("restore database and host identity into named volume: %w\n%s", err, output)
 	}
 	return nil
+}
+
+func waitContext(ctx context.Context, interval time.Duration) bool {
+	if ctx == nil {
+		time.Sleep(interval)
+		return true
+	}
+	timer := time.NewTimer(interval)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
 }

@@ -101,5 +101,10 @@ authorization, uses a new remote branch, and targets `main`.
 - The table-driven interval parser tests cover default, positive duration, zero,
   malformed input, negative input, and nil environment lookup. Full tests, vet,
   network-free compile, and diff checks passed with Go 1.27.1 on 2026-10-09.
+- Coordinator tests cover same-feed sharing and result propagation, different-feed
+  independence, independent and last-caller cancellation, shutdown cancellation and
+  waiting, coalesced success-only notifications, and persistence before notification.
+  Full tests, vet, network-free compile, diff checks, and 10 targeted race-test runs
+  passed with Go 1.27.1 on 2026-10-09.
 - Scheduler, server integration, and public configuration documentation remain
   pending.

@@ -114,8 +114,9 @@ func (m *model) openArticle() tea.Cmd {
 
 func (m *model) beginArticleCacheLoad() tea.Cmd {
 	session, article, store := m.reader.session, m.reader.article, m.articleCache
+	sessionCtx := m.sessionContext()
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(sessionCtx, 5*time.Second)
 		defer cancel()
 		cache, err := store.Get(ctx, article.post.ID, article.post.Link)
 		return articleOpenResult{session: session, postID: article.post.ID, sourceURL: article.post.Link, cache: cache, err: err}

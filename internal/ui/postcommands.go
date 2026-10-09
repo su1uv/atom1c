@@ -72,8 +72,9 @@ func (m *model) beginPostLoad(selectedPostID int64) tea.Cmd {
 	m.postErr = ""
 	m.postErrorAction = postNoRetry
 	store := m.feedStore
+	sessionCtx := m.sessionContext()
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), feedOperationTimeout)
+		ctx, cancel := context.WithTimeout(sessionCtx, feedOperationTimeout)
 		defer cancel()
 		if store == nil {
 			return postPageResult{request: request, feedID: feedID, selectedPostID: selectedPostID, err: errPostDatabaseUnavailable}
@@ -172,8 +173,9 @@ func (m *model) beginFeedRefresh(storedFeed database.Feed) tea.Cmd {
 		m.postErrorAction = postNoRetry
 	}
 	store := m.feedStore
+	sessionCtx := m.sessionContext()
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), feedOperationTimeout)
+		ctx, cancel := context.WithTimeout(sessionCtx, feedOperationTimeout)
 		defer cancel()
 		if store == nil {
 			return feedRefreshResult{request: request, feed: storedFeed, err: errPostDatabaseUnavailable}

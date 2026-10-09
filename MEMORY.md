@@ -8,14 +8,12 @@ Current problems; update as work resolves them. This is a snapshot, not the road
   widths: long item text wrapped inside undersized borders. Both panes now budget
   borders separately; tests check long text and repeated page keys in both dimensions.
   100 `Layout Test Feed` records remain in local `atom1c.db` for visual checks.
-- The running app is a local TUI; SSH access is an empty placeholder.
 - Feed management now uses SQLite with async responsive pages, global name search,
   validated add, recoverable errors, and persistence across restart.
 - Feed refresh is explicit from the UI; no automatic/background refresh exists.
-- Step 8 provides the persisted full-screen reader. Step 9 adds a reusable
-  full-article reader/cache before step 10 SSH; JavaScript/authenticated sites are
-  deferred.
-- User records exist, but no SSH identity/session integration is implemented.
+- Steps 8–10 now provide the persisted full-screen and full-article reader plus
+  public-key SSH access. JavaScript/authenticated websites remain deferred.
+- Step 11 server-level automatic refresh is next; feed refresh remains explicit.
 
 ## Verification baseline
 - Historical steps 1–5 established timestamp, Atom/RSS parsing, transactional
@@ -39,7 +37,15 @@ Current problems; update as work resolves them. This is a snapshot, not the road
 - Step 9 delivers independent `reader`/`reader/view` packages, public HTML
   extraction, SSRF-aware bounded HTTP, Markdown presentation, and SQLite caching.
   Full tests, UI race tests, vet, compile, sqlc, PTY smoke, and review passed on
-  2026-10-08. Next is step 10 SSH.
+  2026-10-08.
+- Step 10 adds Wish SSH-only startup, owner public-key authentication, persistent
+  Ed25519 host identity, PTY TUI sessions with resize/cancellation, shared SQLite,
+  and graceful process shutdown. Local SSH integration adds a feed through the
+  TUI; config, authorization, session cancellation, two-session database reload,
+  concurrent-shell isolation, incomplete-handshake shutdown, and fresh-schema
+  removal of unused users are covered by tests. Full tests, SSH/UI/feed/database
+  race tests, vet, compile check, sqlc generation, and diff checks passed on
+  2026-10-09.
 
 ## Local tooling
 - `.opencode/` and non-plan `.agents/` files are ignored and untracked; roadmap

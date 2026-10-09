@@ -7,7 +7,8 @@
 - Version 1.0 supports Atom and RSS 2.0; RSS 1.0/RDF is excluded.
 - The 1.0 reader displays feed-provided content, including summaries when that is
   all the feed supplies.
-- Full articles retrieved from websites belong to Phase 2, after 1.0.
+- Public website article extraction and caching is included in the current 1.0
+  roadmap (step 9); JavaScript and authenticated sites remain deferred.
 
 ## Milestone 1 — Reliable foundations
 
@@ -110,9 +111,12 @@
 - Configure the listen address, persistent host keys, and authorized SSH keys.
 - All accepted keys access the same owner's feeds and posts.
 - Connect sessions to the TUI; handle resizing and session cancellation.
-- Review whether the existing users table still serves a purpose.
+- Remove the unused user table and username integration; feed data belongs to the
+  single owner of the instance.
 - Verify shared-database behavior across concurrent owner sessions.
-- **Done:** the owner can manage feeds and read posts through SSH.
+- **Done:** the owner can manage feeds and read posts through authenticated SSH
+  sessions. Sessions share one database and have independent navigation; host
+  identity persists across restarts. See [implementation plan](10-ssh-server.md).
 
 ## Milestone 5 — Automatic refresh
 

@@ -2,7 +2,7 @@
 
 > On Development
 
-A self-hosted Atom feed aggregator and terminal reader accessible over SSH.
+A self-hosted Atom/RSS feed aggregator and terminal reader accessed over SSH.
 
 <p align="center">
   <img src="demo.gif" alt="Demo">
@@ -23,9 +23,38 @@ echo 'GOOSE_DBSTRING=./atom1c.db' > .env
 go run .
 ```
 
-Database migrations run automatically at startup, so there's nothing else to set up.
+Startup applies database migrations and launches the SSH server. Go 1.26.5 or newer
+and an authorized key are required. By default, the server listens on
+`127.0.0.1:23234`; set `ATOM1C_SSH_ADDR=0.0.0.0:23234` in `.env` to accept
+connections on all IPv4 interfaces.
 
-Heads up: the SSH part isn't implemented yet. Right now atom1c runs as a plain local TUI.
+Before starting, ensure the server account's `~/.ssh/authorized_keys` exists and
+contains the public key for each client that should connect. Create the directory
+with mode `700` and the key file with mode `600` if needed.
+
+Atom1c authenticates public keys from the server account's `~/.ssh/authorized_keys`.
+The SSH login name must match the operating-system account running Atom1c. Add one
+plain public-key line per client; entries with OpenSSH restrictions/options are
+rejected because Atom1c does not enforce those restrictions, and SSH certificate
+entries are not supported. Password login is disabled. Authorized keys are loaded
+at startup, so key-file changes require a restart.
+
+The Ed25519 SSH host key is generated on first startup and retained at
+`$XDG_DATA_HOME/atom1c/ssh_host_ed25519_key`, or
+`~/.local/share/atom1c/ssh_host_ed25519_key` when `XDG_DATA_HOME` is unset. Keep
+this file to preserve the server identity across restarts.
+
+Connect with an interactive terminal (replace `server-account` and `host`):
+
+```sh
+ssh -p 23234 server-account@host
+```
+
+Atom1c accepts interactive PTY shells only; remote commands, SFTP, and port
+forwarding are not enabled. Each SSH connection gets an independent reader UI
+over the same database. Sessions see shared changes on their next data load or
+after reconnecting; there is no live session broadcast. `q` or `ctrl+c` ends only
+the current reader session. `SIGINT`/`SIGTERM` stops the server and active sessions.
 
 ## Usage
 
@@ -113,6 +142,19 @@ Atom1c application or database packages. Run the standalone reader example with:
 ```sh
 go run ./examples/reader https://example.com/article
 ```
+
+## Configuration
+
+`GOOSE_DBSTRING` is required and selects the SQLite database. SSH settings are
+optional; defaults are shown below:
+
+| Environment variable | Default | Purpose |
+| --- | --- | --- |
+| `ATOM1C_SSH_ADDR` | `127.0.0.1:23234` | SSH listen address |
+| `ATOM1C_AUTHORIZED_KEYS` | `~/.ssh/authorized_keys` | Public keys allowed to log in |
+| `ATOM1C_SSH_HOST_KEY` | `$XDG_DATA_HOME/atom1c/ssh_host_ed25519_key` or `~/.local/share/atom1c/ssh_host_ed25519_key` | Persistent Ed25519 host key |
+
+See `.env.example` for a minimal configuration template.
 
 Add feed modal:
 

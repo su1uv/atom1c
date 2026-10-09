@@ -30,7 +30,7 @@ func (m *model) beginArticleFetch() tea.Cmd {
 	m.reader.fetchRequest++
 	request, session := m.reader.fetchRequest, m.reader.fetchSession
 	fetcher, cache := m.articleFetcher, m.articleCache
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(m.sessionContext())
 	m.reader.fetchCancel = cancel
 	m.reader.fetching = true
 	m.reader.fetchError = ""

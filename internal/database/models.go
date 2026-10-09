@@ -46,10 +46,3 @@ type Post struct {
 	UpdatedRaw      string
 	SourceUpdatedAt sql.NullString
 }
-
-type User struct {
-	ID        int64
-	CreatedAt string
-	UpdatedAt string
-	Username  string
-}

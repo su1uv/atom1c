@@ -95,16 +95,6 @@ func TestTimestampRoundTrips(t *testing.T) {
 	assertCanonicalTimestamp(t, fetched.LastFetchedAt.String)
 	assertCanonicalTimestamp(t, fetched.UpdatedAt)
 
-	if _, err := db.ExecContext(ctx, `INSERT INTO users (username) VALUES (?)`, "owner"); err != nil {
-		t.Fatalf("insert user fixture: %v", err)
-	}
-	user, err := queries.GetUserByUsername(ctx, "owner")
-	if err != nil {
-		t.Fatalf("get user: %v", err)
-	}
-	assertCanonicalTimestamp(t, user.CreatedAt)
-	assertCanonicalTimestamp(t, user.UpdatedAt)
-
 	if err := db.Close(); err != nil {
 		t.Fatalf("close database: %v", err)
 	}
@@ -124,15 +114,16 @@ func TestTimestampRoundTrips(t *testing.T) {
 	if gotFeed.CreatedAt != oldest.CreatedAt || gotFeed.UpdatedAt != oldest.UpdatedAt {
 		t.Fatalf("reopened feed timestamps = (%q, %q), want (%q, %q)", gotFeed.CreatedAt, gotFeed.UpdatedAt, oldest.CreatedAt, oldest.UpdatedAt)
 	}
-	gotUser, err := reopenedQueries.GetUserByUsername(ctx, "owner")
-	if err != nil {
-		t.Fatalf("read user after reopening: %v", err)
+}
+
+func TestFreshSchemaExcludesUnusedUsersTable(t *testing.T) {
+	db, _, _ := openTimestampTestDB(t)
+	var count int
+	if err := db.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'users'`).Scan(&count); err != nil {
+		t.Fatalf("inspect fresh schema: %v", err)
 	}
-	if gotUser.Username != "owner" {
-		t.Fatalf("reopened username = %q, want owner", gotUser.Username)
-	}
-	if gotUser.CreatedAt != user.CreatedAt || gotUser.UpdatedAt != user.UpdatedAt {
-		t.Fatalf("reopened user timestamps = (%q, %q), want (%q, %q)", gotUser.CreatedAt, gotUser.UpdatedAt, user.CreatedAt, user.UpdatedAt)
+	if count != 0 {
+		t.Fatalf("fresh schema contains %d users tables, want none", count)
 	}
 }
 

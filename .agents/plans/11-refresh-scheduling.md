@@ -1,6 +1,6 @@
 # Step 11 — Server-level refresh scheduling
 
-Status: implementation verified; final roadmap and memory updates pending. See
+Status: implemented and verified. See
 [roadmap step 11](roadmap.md#11-add-server-level-refresh-scheduling).
 
 ## Confirmed behavior
@@ -123,4 +123,5 @@ authorization, uses a new remote branch, and targets `main`.
   verify selection/filter and article-snapshot preservation, ignore unrelated feeds,
   and subscribe each model independently. Full tests, vet, network-free compile,
   diff checks, and 10 targeted race-test runs passed with Go 1.27.1 on 2026-10-09.
-- Final roadmap completion and `MEMORY.md` status updates remain pending.
+- All seven increments and the complete Step 11 workflow are implemented; all
+  required checks pass.

@@ -124,8 +124,10 @@
 - Refresh independently of connected SSH sessions, at a configurable interval.
 - Isolate individual feed failures and prevent overlapping fetches.
 - Shut down cleanly and let active readers see newly stored posts.
-- **Done:** feeds continue updating while no SSH client is connected.
-  See [implementation plan](11-refresh-scheduling.md).
+- **Done:** configurable sequential sweeps run independently of SSH sessions,
+  share per-feed operations, isolate failures, cancel cleanly, and notify connected
+  readers after successful refreshes. See
+  [implementation plan](11-refresh-scheduling.md).
 
 ## Milestone 6 — Version 1.0 release
 

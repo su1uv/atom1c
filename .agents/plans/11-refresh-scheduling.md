@@ -50,9 +50,9 @@ when a change becomes broad or contains independently useful behavior.
    historical plan instructions so atomic implementation commits need no separate
    authorization while each push and PR still requires fresh explicit authorization.
    Add this implementation plan.
-2. **Configuration.** Parse `ATOM1C_REFRESH_INTERVAL` after `.env` loading; test
+2. **Configuration.** Add a testable parser for `ATOM1C_REFRESH_INTERVAL`; test
    unset, valid positive durations, zero, malformed values, and negatives. Document
-   the setting and semantics in README.
+   the setting and scheduling semantics when startup wiring is added.
 3. **Shared per-feed refresh coordination.** Route manual UI refreshes and later
    scheduler calls through one coordinator. Test request sharing, result/error
    propagation, different-feed independence, independent caller cancellation,
@@ -98,4 +98,8 @@ authorization, uses a new remote branch, and targets `main`.
 
 ## Verification completed
 
-- Pending.
+- The table-driven interval parser tests cover default, positive duration, zero,
+  malformed input, negative input, and nil environment lookup. Full tests, vet,
+  network-free compile, and diff checks passed with Go 1.27.1 on 2026-10-09.
+- Scheduler, server integration, and public configuration documentation remain
+  pending.

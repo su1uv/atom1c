@@ -165,6 +165,8 @@ func safeRefreshURL(rawURL string) string {
 		return "[redacted URL]"
 	}
 	parsed.User = nil
+	parsed.Path = ""
+	parsed.RawPath = ""
 	parsed.RawQuery = ""
 	parsed.ForceQuery = false
 	parsed.Fragment = ""

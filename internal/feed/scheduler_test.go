@@ -175,16 +175,16 @@ func TestRunRefreshSchedulerStopsOnCancellationDuringSweep(t *testing.T) {
 
 func TestRunRefreshSchedulerRedactsCredentialsFromFailureLogs(t *testing.T) {
 	for _, feedURL := range []string{
-		"https://reader:password@example.test/feed?token=secret",
-		"HTTPS://reader:password@example.test/feed?token=secret",
-		"hTtPs://reader:password@example.test/feed?token=secret",
-		"https://reader:password@example.test/feed?token=secret suffix",
+		"https://reader:password@example.test/pathsecret?token=secret",
+		"HTTPS://reader:password@example.test/pathsecret?token=secret",
+		"hTtPs://reader:password@example.test/pathsecret?token=secret",
+		"https://reader:password@example.test/pathsecret?token=secret suffix",
 	} {
 		t.Run(feedURL, func(t *testing.T) {
 			lister := &scriptedRefreshFeedLister{results: []refreshFeedListResult{{feeds: []database.Feed{{ID: 5, Name: "Private", Url: feedURL}}}}}
 			var logOutput bytes.Buffer
 			logger := slog.New(slog.NewTextHandler(&logOutput, nil))
-			redirectURL := strings.ToUpper("https://proxyuser:pass@example.test/redirect?auth=extra supersecret")
+			redirectURL := strings.ToUpper("https://proxyuser:pass@example.test/redirectsecret?auth=extra supersecret")
 			refresher := schedulerRefreshFunc(func(context.Context, database.Feed) error {
 				return fmt.Errorf("fetch feed %q: redirected to %s", feedURL, redirectURL)
 			})
@@ -197,12 +197,12 @@ func TestRunRefreshSchedulerRedactsCredentialsFromFailureLogs(t *testing.T) {
 				t.Fatalf("run scheduler: %v", err)
 			}
 			got := logOutput.String()
-			for _, secret := range []string{"reader", "password", "token", "secret", "proxyuser", "pass", "auth", "extra", "supersecret"} {
+			for _, secret := range []string{"reader", "password", "token", "secret", "pathsecret", "redirectsecret", "proxyuser", "pass", "auth", "extra", "supersecret"} {
 				if strings.Contains(got, secret) {
 					t.Errorf("failure log leaked %q: %s", secret, got)
 				}
 			}
-			if !strings.Contains(strings.ToLower(got), "https://example.test/feed") {
+			if !strings.Contains(strings.ToLower(got), "https://example.test") {
 				t.Errorf("failure log lost safe URL context: %s", got)
 			}
 		})

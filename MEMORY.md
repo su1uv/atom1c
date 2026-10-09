@@ -15,8 +15,6 @@ Current problems; update as work resolves them. This is a snapshot, not the road
   public-key SSH access. JavaScript/authenticated websites remain deferred.
 - Step 11 defaults to 15m (`ATOM1C_REFRESH_INTERVAL`; `0` disables) and runs
   immediate sequential sweeps; successful refreshes reload connected sessions.
-- Atomic implementation commits may be made as work proceeds; each push/PR still
-  needs fresh explicit authorization and must use a new branch targeting `main`.
 
 ## Verification baseline
 - Historical steps 1–5 established timestamp, Atom/RSS parsing, transactional
@@ -30,7 +28,6 @@ Current problems; update as work resolves them. This is a snapshot, not the road
   open feed, reloads updated posts, and scopes retries to the failed operation.
   Atom/RSS UI workflows use local HTTP servers and temporary SQLite; full tests,
   vet, compile check, and diff check passed on 2026-10-07.
-- Passing checks do not establish functional completeness.
 - Step 8 passed full tests, UI race tests, vet, compile, and diff checks on
   2026-10-08. Atom/RSS temporary-SQLite workflows cover reading, refresh snapshot
   isolation, reopening updated articles, and database reopen. A PTY smoke checked
@@ -52,6 +49,9 @@ Current problems; update as work resolves them. This is a snapshot, not the road
 - Step 11 verification on 2026-10-09: full tests, vet, compile, sqlc, and targeted
   race checks passed; temporary SQLite/local HTTP cover no-client scheduling,
   cancellation, persistence, and manual/scheduled multi-session reloads.
+- Step 12 adds a non-root Linux/amd64 Compose deployment. Executable and isolated
+  container workflows verify restart/persistence, Atom/RSS, SSH sessions, scheduled
+  and canceled refresh, backup/restore, and cleanup; required checks pass.
 
 ## Local tooling
 - `.opencode/` and non-plan `.agents/` files are ignored and untracked; roadmap

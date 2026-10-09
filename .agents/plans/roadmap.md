@@ -134,9 +134,13 @@
 ### 12. Verify and document the complete workflow
 - Verify fresh and existing databases, Atom/RSS ingestion, and deduplication.
 - Exercise reading, SSH reconnects, concurrent sessions, and background refresh.
-- Document self-hosting, startup, authentication, configuration, and keybindings.
+- Provide a documented Docker Compose deployment and document self-hosting,
+  startup, authentication, configuration, and keybindings.
 - Remove obsolete mocks and placeholders after replacements are verified.
-- **Done:** someone can follow the README to host and use their own instance.
+- **Done:** the complete workflow is verified and documented, including a
+  locally built Linux/amd64 Docker Compose deployment with persistent storage,
+  authenticated SSH, and an opt-in end-to-end workflow. See
+  [implementation plan](12-release-readiness.md).
 
 ## Deferred full-article capabilities
 

@@ -48,6 +48,8 @@
 - Tests: `go test ./... -timeout 30s`; feed tests use Atom/RSS fixtures and local
   HTTP servers.
 - Network-free compile check: `go test ./... -run '^$'`; static check: `go vet ./...`.
+- Docker deployment targets Linux/amd64; verify it with
+  `go run ./scripts/compose-smoke` when Docker Compose is available.
 
 ## Implementation guidance
 - Use Charm v2 APIs (`charm.land/...`, `tea.KeyPressMsg`, `View() tea.View`).

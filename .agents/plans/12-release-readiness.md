@@ -101,3 +101,6 @@ and PR requires fresh explicit authorization, a new remote branch, and target
   permissions across restart, scheduled refresh cancellation on SIGINT, and
   database usability afterward. It passes under the race detector with repeated
   runs; full tests, vet, compile-only tests, and diff checks passed.
+- The multi-stage scratch image builds for Linux amd64 with Go 1.27.1, contains
+  runtime CA certificates, and configures UID/GID 10001. The image is about 9.2 MB;
+  Docker build and image metadata inspection passed without warnings.

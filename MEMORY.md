@@ -1,13 +1,12 @@
 # Short-term project memory
 
-Current problems; update as work resolves them. This is a snapshot, not the roadmap.
-
-## Missing functionality
+## Current state
 - Owner confirmed feeds stay bounded; posts use page-edge cursor navigation and
   a header page indicator. Further overflow traced to Lipgloss v2 border-inclusive
   widths: long item text wrapped inside undersized borders. Both panes now budget
   borders separately; tests check long text and repeated page keys in both dimensions.
-  100 `Layout Test Feed` records remain in local `atom1c.db` for visual checks.
+  Local `atom1c.db` now has 10 verified tech feeds and fetched posts for the demo;
+  the old layout-test data was cleared without a backup at the owner's request.
 - Feed management now uses SQLite with async responsive pages, global name search,
   validated add, recoverable errors, and persistence across restart.
 - Server-level automatic refresh is implemented; manual refresh remains available.
@@ -52,9 +51,10 @@ Current problems; update as work resolves them. This is a snapshot, not the road
 - Step 12 adds a non-root Linux/amd64 Compose deployment. Executable and isolated
   container workflows verify restart/persistence, Atom/RSS, SSH sessions, scheduled
   and canceled refresh, backup/restore, and cleanup; required checks pass.
+- README is a short landing page; detailed guides live in `docs/`. The refreshed
+  GIF demonstrates SSH, feed search, full articles, scrolling, and preview toggle.
 
 ## Local tooling
 - `.opencode/` and non-plan `.agents/` files are ignored and untracked; roadmap
-  plans remain versioned. The formerly tracked review command is preserved locally.
-- Roadmap items are implementation plans, not commit boundaries; split work into
-  small, independently reviewable commits per `AGENTS.md`.
+  plans remain versioned; the formerly tracked review command is preserved locally.
+- Split roadmap work into small, independently reviewable commits per `AGENTS.md`.

@@ -10,7 +10,9 @@ A self-hosted Atom/RSS feed aggregator and terminal reader accessed over SSH.
 
 ## Motivation
 
-It's a learning project. I'm using it to get properly comfortable with the Charm TUI stack (Bubble Tea, Bubbles, Lipgloss).
+Keep up with the web without handing your reading list to another platform.
+Atom1c turns your feeds into a quiet reading corner you own: hosted on your
+server, opened from an SSH terminal, and ready when you are.
 
 ## Quick Start — Docker Compose
 

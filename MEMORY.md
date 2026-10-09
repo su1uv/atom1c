@@ -10,10 +10,13 @@ Current problems; update as work resolves them. This is a snapshot, not the road
   100 `Layout Test Feed` records remain in local `atom1c.db` for visual checks.
 - Feed management now uses SQLite with async responsive pages, global name search,
   validated add, recoverable errors, and persistence across restart.
-- Feed refresh is explicit from the UI; no automatic/background refresh exists.
+- Server-level automatic refresh is implemented; manual refresh remains available.
 - Steps 8–10 now provide the persisted full-screen and full-article reader plus
   public-key SSH access. JavaScript/authenticated websites remain deferred.
-- Step 11 server-level automatic refresh is next; feed refresh remains explicit.
+- Step 11 defaults to 15m (`ATOM1C_REFRESH_INTERVAL`; `0` disables) and runs
+  immediate sequential sweeps; successful refreshes reload connected sessions.
+- Atomic implementation commits may be made as work proceeds; each push/PR still
+  needs fresh explicit authorization and must use a new branch targeting `main`.
 
 ## Verification baseline
 - Historical steps 1–5 established timestamp, Atom/RSS parsing, transactional
@@ -46,6 +49,9 @@ Current problems; update as work resolves them. This is a snapshot, not the road
   removal of unused users are covered by tests. Full tests, SSH/UI/feed/database
   race tests, vet, compile check, sqlc generation, and diff checks passed on
   2026-10-09.
+- Step 11 verification on 2026-10-09: full tests, vet, compile, sqlc, and targeted
+  race checks passed; temporary SQLite/local HTTP cover no-client scheduling,
+  cancellation, persistence, and manual/scheduled multi-session reloads.
 
 ## Local tooling
 - `.opencode/` and non-plan `.agents/` files are ignored and untracked; roadmap

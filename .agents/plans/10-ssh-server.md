@@ -64,7 +64,9 @@ Roadmap: [Step 10](roadmap.md#10-add-the-single-owner-ssh-server).
    concurrent sessions, and interactive SSH behavior.
 
 These increments are independently reviewable units, not prescribed commit
-boundaries. Split further when useful; commit only with explicit authorization.
+boundaries. Split further when useful; make atomic implementation commits as work
+proceeds without separate authorization. Publishing requires fresh explicit
+authorization to push to a new remote branch and open a PR targeting `main`.
 
 ## Verification
 

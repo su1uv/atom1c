@@ -65,7 +65,7 @@ Roadmap: [Step 9](roadmap.md#9-retrieve-and-cache-full-website-articles).
    `AGENTS.md` needs changes; defer JavaScript and authenticated-site support.
 
 These are work increments, not fixed commit boundaries. Split further when needed.
-Each authorized atomic commit must compile, pass applicable checks, and include
+Each atomic commit must compile, pass applicable checks, and include
 its relevant tests/docs.
 
 ## Acceptance criteria
@@ -88,7 +88,7 @@ Use Go 1.26.5 or newer. Write and run behavior tests failing before implementati
 Use table-driven fixtures, local HTTP servers, and temporary SQLite; never rely on
 external network test dependencies. Include race coverage for async/cache flows.
 
-Before each explicitly authorized commit, review the intended diff and run:
+Before each commit, review the intended diff and run:
 
 ```sh
 go test ./... -timeout 30s
@@ -99,7 +99,8 @@ git diff --check
 
 Run `sqlc generate` for SQL changes and review generated diffs. Do not hand-edit
 generated database files. Rebuild after migration changes. Use Go 1.26.5+ and
-repository commit prefixes. Publishing always needs separate fresh authorization.
+repository commit prefixes. Make implementation commits as work proceeds without
+separate authorization. Publishing always needs fresh explicit authorization.
 
 ## Verification completed
 

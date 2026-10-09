@@ -142,6 +142,36 @@ func modelWithFeedStore(store feedStore) model {
 	return m
 }
 
+func TestNewModelsSubscribeIndependentlyToRefreshNotifications(t *testing.T) {
+	manager := &recordingRefreshManager{}
+	for range 2 {
+		ctx, cancel := context.WithCancel(context.Background())
+		m := newModelWithContext(&internal.State{FeedRefresh: manager}, ctx).(model)
+		if m.refreshSubscription == nil {
+			t.Fatal("model did not subscribe to shared feed refreshes")
+		}
+		batch, ok := m.Init()().(tea.BatchMsg)
+		if !ok || len(batch) != 2 {
+			t.Fatalf("model Init() = %#v, want background and subscription commands", batch)
+		}
+		cancel()
+	}
+	if manager.subscriptions != 2 {
+		t.Fatalf("session subscriptions = %d, want one per model", manager.subscriptions)
+	}
+}
+
+type recordingRefreshManager struct {
+	subscriptions int
+}
+
+func (m *recordingRefreshManager) Refresh(context.Context, database.Feed) error { return nil }
+
+func (m *recordingRefreshManager) Subscribe(context.Context) internal.FeedRefreshSubscription {
+	m.subscriptions++
+	return testRefreshSubscription{}
+}
+
 func runCommand(t *testing.T, cmd tea.Cmd) tea.Msg {
 	t.Helper()
 	if cmd == nil {

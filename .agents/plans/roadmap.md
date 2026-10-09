@@ -124,7 +124,10 @@
 - Refresh independently of connected SSH sessions, at a configurable interval.
 - Isolate individual feed failures and prevent overlapping fetches.
 - Shut down cleanly and let active readers see newly stored posts.
-- **Done:** feeds continue updating while no SSH client is connected.
+- **Done:** configurable sequential sweeps run independently of SSH sessions,
+  share per-feed operations, isolate failures, cancel cleanly, and notify connected
+  readers after successful refreshes. See
+  [implementation plan](11-refresh-scheduling.md).
 
 ## Milestone 6 — Version 1.0 release
 
@@ -147,12 +150,12 @@
 - Start with step 1, then proceed through the milestones in order.
 - Numbered steps are plans, not commit boundaries. Before implementation, split
   each plan into small, cohesive, independently reviewable and verified changes.
-  Each authorized commit completes one such change, including relevant tests and
+  Each commit completes one such change, including relevant tests and
   documentation. Further split work that becomes too broad or combines independent
   behavior; keep every committed state compiling and passing required checks.
 - Ask about unclear requirements rather than assuming behavior.
 - Add meaningful verification for the behavior being changed.
-- Before each authorized commit, run:
+- Before each commit, run:
   - `go test ./... -timeout 30s`
   - `go vet ./...`
   - `go test ./... -run '^$'`
@@ -160,5 +163,6 @@
   and review the intended diff.
 - Use short, meaningful `[feat]:`, `[fix]:`, `[misc]:`, or `[refac]:` messages.
 - Keep MEMORY.md current and within 60 lines; check AGENTS.md after every task.
-- Commit only with explicit authorization. Obtain fresh explicit authorization
-  every time before pushing to a new remote branch and opening a PR to main.
+- Make atomic implementation commits as work proceeds; separate commit
+  authorization is not required. Obtain fresh, explicit authorization every time
+  before pushing to a new remote branch and opening a PR targeting `main`.

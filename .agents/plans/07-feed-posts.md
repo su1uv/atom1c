@@ -38,13 +38,13 @@ and post queries are reused; this step connects them to the application.
 The following are reviewable work boundaries, not an instruction to create a
 commit for every heading. Refine a boundary if it becomes too broad or mixes
 independent behavior. Every commit must leave the repository compiling and passing
-the required checks; commits still require explicit authorization.
+the required checks; atomic implementation commits may be made as work proceeds.
 
 ### 1. Correct roadmap commit guidance
 
 - State in `AGENTS.md` that a roadmap item is a plan, not a commit boundary.
 - Require plans to be decomposed into cohesive, independently reviewable and
-  verified changes; each authorized commit completes one such change and includes
+  verified changes; each commit completes one such change and includes
   relevant tests and docs.
 - Update roadmap guidance and historical plan wording that says to commit a whole
   step as one atomic change.
@@ -130,7 +130,7 @@ the required checks; commits still require explicit authorization.
 - README keybindings and usage text document the implemented workflow.
 - Full test, vet, network-free compile, and diff checks passed.
 
-## Verification before each authorized commit
+## Verification before each commit
 
 ```sh
 go test ./... -timeout 30s
@@ -141,5 +141,6 @@ git diff --check
 
 Run any other applicable checks and review the intended change. Use Go 1.26.5 or
 newer. Commit messages use the short `[feat]:`, `[fix]:`, `[misc]:`, or `[refac]:`
-prefixes. Commit only with explicit authorization. Publishing needs fresh explicit
-authorization to push to a new remote branch and open a PR targeting `main`.
+prefixes. Make atomic implementation commits as work proceeds; separate commit
+authorization is not required. Publishing needs fresh explicit authorization to
+push to a new remote branch and open a PR targeting `main`.

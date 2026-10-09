@@ -38,5 +38,8 @@ func (s stateFeedStore) GetPosts(ctx context.Context, feedID int64) ([]database.
 }
 
 func (s stateFeedStore) Refresh(ctx context.Context, storedFeed database.Feed) error {
+	if s.state.FeedRefresh != nil {
+		return s.state.FeedRefresh.Refresh(ctx, storedFeed)
+	}
 	return feed.RefreshFeed(ctx, s.state.SQLDB, storedFeed)
 }

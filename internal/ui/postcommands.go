@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/su1uv/atom1c/internal"
 	"github.com/su1uv/atom1c/internal/database"
 )
 
@@ -38,6 +39,34 @@ type feedRefreshResult struct {
 	err     error
 }
 
+type feedRefreshNotification struct {
+	notification internal.FeedRefreshNotification
+	err          error
+}
+
+func (m model) feedRefreshSubscriptionCommand() tea.Cmd {
+	if m.refreshSubscription == nil {
+		return nil
+	}
+	subscription := m.refreshSubscription
+	ctx := m.sessionContext()
+	return func() tea.Msg {
+		notification, err := subscription.Next(ctx)
+		return feedRefreshNotification{notification: notification, err: err}
+	}
+}
+
+func (m model) updateFeedRefreshNotification(msg feedRefreshNotification) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		return m, nil
+	}
+	commands := []tea.Cmd{m.feedRefreshSubscriptionCommand()}
+	if msg.notification.FeedID == m.openFeedID && m.openFeedID != 0 {
+		commands = append(commands, m.beginPostLoad(m.currentPostSelectionID()))
+	}
+	return m, tea.Batch(commands...)
+}
+
 func (m *model) openFeed(selected item) tea.Cmd {
 	if selected.id != m.openFeedID {
 		m.postRecords = nil
@@ -48,6 +77,9 @@ func (m *model) openFeed(selected item) tea.Cmd {
 	m.openFeedID = selected.id
 	m.openFeedName = selected.name
 	m.openFeedURL = selected.url
+	if m.refreshSubscription != nil {
+		m.refreshSubscription.Watch(selected.id)
+	}
 	m.postErr = ""
 	m.postErrorAction = postNoRetry
 	return m.beginPostLoad(m.currentPostSelectionID())
@@ -201,6 +233,9 @@ func (m model) updateFeedRefreshResult(msg feedRefreshResult) (tea.Model, tea.Cm
 	delete(m.refreshErrors, msg.feed.ID)
 	m.refreshCompleted[msg.feed.ID] = true
 	if m.openFeedID == msg.feed.ID {
+		if m.refreshSubscription != nil {
+			return m, nil
+		}
 		return m, m.beginPostLoad(m.currentPostSelectionID())
 	}
 	return m, nil

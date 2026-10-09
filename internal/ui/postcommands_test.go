@@ -1,18 +1,23 @@
 package ui
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/su1uv/atom1c/internal"
 	"github.com/su1uv/atom1c/internal/database"
+	feedpkg "github.com/su1uv/atom1c/internal/feed"
 	"github.com/su1uv/atom1c/internal/handlers"
 )
 
@@ -228,6 +233,257 @@ func TestSuccessfulRefreshReloadsPostsAndPreservesSelection(t *testing.T) {
 		t.Fatalf("post filter after refresh = %q, want preserved query keep", m.posts.list.FilterInput.Value())
 	}
 }
+
+func TestSuccessfulSharedRefreshNotificationReloadsOpenFeedAndPreservesReaderState(t *testing.T) {
+	store := postStoreWithFeeds(database.Feed{ID: 1, Name: "One", Url: "https://example.test/one"})
+	store.posts[1] = []database.Post{
+		{ID: 12, FeedID: 1, Title: "Newest", Link: "https://example.test/newest"},
+		{ID: 10, FeedID: 1, Title: "Keep selected", Link: "https://example.test/selected"},
+	}
+	m := loadedFeedModel(t, store)
+	m, loadCmd := applyMessage(m, press("tab", tea.KeyTab))
+	m, _ = applyMessage(m, runCommand(t, loadCmd))
+	m.posts.list.SetFilterText("keep")
+	m.posts.list.Select(0)
+	m.refreshSubscription = testRefreshSubscription{}
+	m.readerOpen = true
+	m.reader.article = articleSnapshot{source: "open snapshot"}
+	store.posts[1] = []database.Post{
+		{ID: 15, FeedID: 1, Title: "Inserted", Link: "https://example.test/inserted"},
+		{ID: 12, FeedID: 1, Title: "Updated newest", Link: "https://example.test/newest"},
+		{ID: 10, FeedID: 1, Title: "Keep selected", Link: "https://example.test/selected"},
+	}
+
+	priorRequest := m.postRequest
+	m, cmd := applyMessage(m, feedRefreshNotification{notification: internal.FeedRefreshNotification{FeedID: 1}})
+	if m.postRequest != priorRequest+1 || !m.postLoading {
+		t.Fatalf("notification post state = request %d, loading %v; want request %d and loading", m.postRequest, m.postLoading, priorRequest+1)
+	}
+	if cmd == nil {
+		t.Fatal("matching refresh notification did not schedule the watcher/reload")
+	}
+	batch, ok := cmd().(tea.BatchMsg)
+	if !ok || len(batch) != 2 {
+		t.Fatalf("notification command = %#v, want watcher and post reload", batch)
+	}
+	page, ok := batch[1]().(postPageResult)
+	if !ok {
+		t.Fatalf("post reload result = %#v, want postPageResult", page)
+	}
+	m, postFilterCmd := applyMessage(m, page)
+	if postFilterCmd != nil {
+		m, _ = applyMessage(m, runCommand(t, postFilterCmd))
+	}
+	selected, ok := m.posts.list.SelectedItem().(item)
+	if !ok || selected.id != 10 {
+		t.Fatalf("selected post = %#v, want post ID 10", m.posts.list.SelectedItem())
+	}
+	if got := m.posts.list.FilterInput.Value(); got != "keep" {
+		t.Fatalf("filter after notification reload = %q, want keep", got)
+	}
+	if got := m.postRecords[12].Title; got != "Updated newest" {
+		t.Fatalf("updated persisted post title = %q, want Updated newest", got)
+	}
+	if got := m.reader.article.source; got != "open snapshot" {
+		t.Fatalf("open article snapshot source changed to %q", got)
+	}
+}
+
+func TestUnrelatedSharedRefreshNotificationDoesNotReloadOpenFeed(t *testing.T) {
+	store := postStoreWithFeeds(database.Feed{ID: 1, Name: "Open", Url: "https://example.test/open"})
+	m := modelWithFeedStore(store)
+	m.refreshSubscription = testRefreshSubscription{}
+	priorRequest := m.postRequest
+	m, cmd := applyMessage(m, feedRefreshNotification{notification: internal.FeedRefreshNotification{FeedID: 2}})
+	if m.postRequest != priorRequest || m.postLoading {
+		t.Fatalf("unrelated notification changed post load state: request %d loading %v", m.postRequest, m.postLoading)
+	}
+	if cmd == nil {
+		t.Fatal("unrelated notification did not re-arm the subscription watcher")
+	}
+}
+
+func TestRefreshNotificationReloadsMatchingCurrentFeed(t *testing.T) {
+	store := postStoreWithFeeds(database.Feed{ID: 1, Name: "Open", Url: "https://example.test/open"})
+	m := modelWithFeedStore(store)
+	m.refreshSubscription = testRefreshSubscription{}
+	priorRequest := m.postRequest
+	m, cmd := applyMessage(m, feedRefreshNotification{notification: internal.FeedRefreshNotification{FeedID: 1}})
+	if m.postRequest != priorRequest+1 || !m.postLoading {
+		t.Fatalf("matching notification did not reload current feed: request=%d loading=%v", m.postRequest, m.postLoading)
+	}
+	if cmd == nil {
+		t.Fatal("matching notification did not re-arm the subscription watcher")
+	}
+}
+
+func TestManualRefreshReloadsBothConnectedModelsThroughSharedCoordinator(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		_, _ = fmt.Fprint(w, `<feed xmlns="http://www.w3.org/2005/Atom"><entry><id>shared-entry</id><title>Shared update</title></entry></feed>`)
+	}))
+	defer server.Close()
+	dbPath := filepath.Join(t.TempDir(), "shared-refresh.db")
+	db := openUIWorkflowDB(t, dbPath)
+	defer db.Close()
+	queries := database.New(db)
+	storedFeed, err := queries.CreateFeed(context.Background(), database.CreateFeedParams{Name: "Shared", Url: server.URL})
+	if err != nil {
+		t.Fatalf("create feed: %v", err)
+	}
+	manager, err := feedpkg.NewRefreshCoordinator(context.Background(), db)
+	if err != nil {
+		t.Fatalf("create refresh coordinator: %v", err)
+	}
+	defer manager.Close()
+	state := &internal.State{Db: queries, SQLDB: db, FeedRefresh: manager}
+	first, cancelFirst := newSharedReaderModel(t, state, storedFeed)
+	defer cancelFirst()
+	second, cancelSecond := newSharedReaderModel(t, state, storedFeed)
+	defer cancelSecond()
+
+	first, refreshCmd := applyMessage(first, press("R", 'R'))
+	if refreshCmd == nil {
+		t.Fatal("manual refresh did not start")
+	}
+	refreshResult := runCommand(t, refreshCmd)
+	first, _ = applyMessage(first, refreshResult)
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("feed requests = %d, want one successful manual fetch", got)
+	}
+	first = applySharedRefreshNotification(t, first)
+	second = applySharedRefreshNotification(t, second)
+
+	for session, model := range map[string]model{"first": first, "second": second} {
+		if got := model.postRecords[1].Title; got != "Shared update" {
+			t.Errorf("%s session post title = %q, want Shared update", session, got)
+		}
+	}
+}
+
+func TestScheduledRefreshReloadsBothConnectedModelsThroughSharedCoordinator(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		_, _ = fmt.Fprint(w, `<feed xmlns="http://www.w3.org/2005/Atom"><entry><id>scheduled-entry</id><title>Scheduled update</title></entry></feed>`)
+	}))
+	defer server.Close()
+	dbPath := filepath.Join(t.TempDir(), "scheduled-refresh.db")
+	db := openUIWorkflowDB(t, dbPath)
+	defer db.Close()
+	queries := database.New(db)
+	storedFeed, err := queries.CreateFeed(context.Background(), database.CreateFeedParams{Name: "Shared", Url: server.URL})
+	if err != nil {
+		t.Fatalf("create feed: %v", err)
+	}
+	manager, err := feedpkg.NewRefreshCoordinator(context.Background(), db)
+	if err != nil {
+		t.Fatalf("create refresh coordinator: %v", err)
+	}
+	schedulerCtx, cancelScheduler := context.WithCancel(context.Background())
+	schedulerDone := make(chan error, 1)
+	schedulerFinished := false
+	defer func() {
+		cancelScheduler()
+		if !schedulerFinished {
+			<-schedulerDone
+		}
+		manager.Close()
+	}()
+	state := &internal.State{Db: queries, SQLDB: db, FeedRefresh: manager}
+	firstCtx, cancelFirst := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancelFirst()
+	secondCtx, cancelSecond := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancelSecond()
+	first := newSharedReaderModelForContext(t, state, storedFeed, firstCtx)
+	second := newSharedReaderModelForContext(t, state, storedFeed, secondCtx)
+	go func() {
+		schedulerDone <- feedpkg.RunRefreshScheduler(schedulerCtx, queries, manager, time.Hour, nil)
+	}()
+
+	firstNotification := runCommand(t, first.feedRefreshSubscriptionCommand()).(feedRefreshNotification)
+	secondNotification := runCommand(t, second.feedRefreshSubscriptionCommand()).(feedRefreshNotification)
+	first = applyRefreshNotificationResult(t, first, firstNotification)
+	second = applyRefreshNotificationResult(t, second, secondNotification)
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("feed requests = %d, want one scheduled fetch", got)
+	}
+	for session, model := range map[string]model{"first": first, "second": second} {
+		if got := model.postRecords[1].Title; got != "Scheduled update" {
+			t.Errorf("%s session post title = %q, want Scheduled update", session, got)
+		}
+	}
+	cancelScheduler()
+	schedulerErr := <-schedulerDone
+	schedulerFinished = true
+	if schedulerErr != nil {
+		t.Fatalf("stop refresh scheduler: %v", schedulerErr)
+	}
+}
+
+func newSharedReaderModel(t *testing.T, state *internal.State, storedFeed database.Feed) (model, context.CancelFunc) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	return newSharedReaderModelForContext(t, state, storedFeed, ctx), cancel
+}
+
+func newSharedReaderModelForContext(t *testing.T, state *internal.State, storedFeed database.Feed, ctx context.Context) model {
+	t.Helper()
+	m := newModelWithContext(state, ctx).(model)
+	m.focus = focusPosts
+	loadCmd := m.openFeed(item{id: storedFeed.ID, name: storedFeed.Name, url: storedFeed.Url})
+	m, _ = applyMessage(m, runCommand(t, loadCmd))
+	return m
+}
+
+func applySharedRefreshNotification(t *testing.T, m model) model {
+	t.Helper()
+	watchCmd := m.feedRefreshSubscriptionCommand()
+	if watchCmd == nil {
+		t.Fatal("model has no refresh notification subscription")
+	}
+	notification, ok := runCommand(t, watchCmd).(feedRefreshNotification)
+	if !ok || notification.err != nil {
+		t.Fatalf("refresh notification = %#v, want successful notification", notification)
+	}
+	return applyRefreshNotificationResult(t, m, notification)
+}
+
+func applyRefreshNotificationResult(t *testing.T, m model, notification feedRefreshNotification) model {
+	t.Helper()
+	if notification.err != nil {
+		t.Fatalf("refresh notification error = %v", notification.err)
+	}
+	m, reload := applyMessage(m, notification)
+	if reload == nil {
+		t.Fatal("matching refresh notification did not schedule a reload")
+	}
+	batch, ok := reload().(tea.BatchMsg)
+	if !ok || len(batch) != 2 {
+		t.Fatalf("notification commands = %#v, want watcher and reload", batch)
+	}
+	page, ok := batch[1]().(postPageResult)
+	if !ok {
+		t.Fatalf("notification reload result = %#v, want postPageResult", page)
+	}
+	m, filterCmd := applyMessage(m, page)
+	if filterCmd != nil {
+		m, _ = applyMessage(m, runCommand(t, filterCmd))
+	}
+	return m
+}
+
+type testRefreshSubscription struct{}
+
+func (testRefreshSubscription) Watch(int64) {}
+
+func (testRefreshSubscription) Next(ctx context.Context) (internal.FeedRefreshNotification, error) {
+	<-ctx.Done()
+	return internal.FeedRefreshNotification{}, ctx.Err()
+}
+
+func (testRefreshSubscription) Close() {}
 
 func TestRetryAfterRefreshReloadFailureDoesNotRepeatRefresh(t *testing.T) {
 	store := postStoreWithFeeds(database.Feed{ID: 1, Name: "One", Url: "https://example.test/one"})

@@ -78,5 +78,6 @@ guidance is superseded. A plan is not a commit boundary: split future work into
 small, independently reviewable and verified changes as required by
 [AGENTS.md](../../AGENTS.md).
 
-Commit only with explicit authorization. Publishing requires fresh explicit
-authorization to push a new branch and open a PR targeting `main`.
+Make atomic implementation commits as work proceeds; separate commit authorization
+is not required. Publishing requires fresh explicit authorization to push a new
+branch and open a PR targeting `main`.

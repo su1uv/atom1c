@@ -106,5 +106,11 @@ authorization, uses a new remote branch, and targets `main`.
   waiting, coalesced success-only notifications, and persistence before notification.
   Full tests, vet, network-free compile, diff checks, and 10 targeted race-test runs
   passed with Go 1.27.1 on 2026-10-09.
+- The refresh feed query returns a complete, deterministically ordered snapshot.
+  Scheduler tests cover immediate/sequential sweeps, per-feed failure isolation,
+  enumeration failure logging/retry, updated feed snapshots on later sweeps, empty
+  feeds, disable behavior, and cancellation during a sweep. `sqlc generate`, full tests,
+  vet, network-free compile, diff checks, and 10 targeted race-test runs passed
+  with Go 1.27.1 on 2026-10-09.
 - Scheduler, server integration, and public configuration documentation remain
   pending.

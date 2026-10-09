@@ -52,6 +52,35 @@ func TestGetFeedsPageIncludesEveryPageAndStableOrdering(t *testing.T) {
 	}
 }
 
+func TestGetFeedsForRefreshReturnsCompleteDeterministicSnapshot(t *testing.T) {
+	db, queries, _ := openTimestampTestDB(t)
+	defer db.Close()
+	ctx := context.Background()
+
+	wantNames := []string{"First", "Second", "Third"}
+	for _, name := range wantNames {
+		if _, err := queries.CreateFeed(ctx, CreateFeedParams{Name: name, Url: "https://example.test/" + name}); err != nil {
+			t.Fatalf("create feed %q: %v", name, err)
+		}
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE feeds SET last_fetched_at = '2000-01-01 00:00:00' WHERE name = 'Third'`); err != nil {
+		t.Fatalf("mark Third fetched: %v", err)
+	}
+
+	feeds, err := queries.GetFeedsForRefresh(ctx)
+	if err != nil {
+		t.Fatalf("get refresh feed snapshot: %v", err)
+	}
+	if len(feeds) != len(wantNames) {
+		t.Fatalf("refresh snapshot has %d feeds, want %d", len(feeds), len(wantNames))
+	}
+	for i, want := range wantNames {
+		if feeds[i].Name != want {
+			t.Errorf("refresh feed %d = %q, want %q", i, feeds[i].Name, want)
+		}
+	}
+}
+
 func TestGetFeedsPageSearchIsGlobalCaseInsensitiveAndLiteral(t *testing.T) {
 	db, queries, _ := openTimestampTestDB(t)
 	defer db.Close()

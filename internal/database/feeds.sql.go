@@ -76,6 +76,43 @@ func (q *Queries) GetFeedPosition(ctx context.Context, arg GetFeedPositionParams
 	return count, err
 }
 
+const getFeedsForRefresh = `-- name: GetFeedsForRefresh :many
+SELECT
+    id, created_at, updated_at, name, url, last_fetched_at
+FROM feeds
+ORDER BY created_at, id
+`
+
+func (q *Queries) GetFeedsForRefresh(ctx context.Context) ([]Feed, error) {
+	rows, err := q.db.QueryContext(ctx, getFeedsForRefresh)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Feed
+	for rows.Next() {
+		var i Feed
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Name,
+			&i.Url,
+			&i.LastFetchedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getFeedsPage = `-- name: GetFeedsPage :many
 SELECT
     id,

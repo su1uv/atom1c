@@ -49,3 +49,9 @@ SELECT
 FROM feeds
 ORDER BY last_fetched_at ASC
 LIMIT 1;
+
+-- name: GetFeedsForRefresh :many
+SELECT
+    id, created_at, updated_at, name, url, last_fetched_at
+FROM feeds
+ORDER BY created_at, id;

@@ -17,7 +17,7 @@
 
 ## Verification baseline
 - Historical steps 1–5 established timestamp, Atom/RSS parsing, transactional
-  post persistence, and UI input routing; details remain in roadmap plans.
+  post persistence, and UI input routing; historical plans are local-only.
 - Startup migrations are embedded. The timestamp schema has not been deployed;
   existing source migrations use UTC second-precision TEXT timestamps.
 - Step 6 added SQLite feed paging/global Unicode-insensitive search and validated
@@ -51,10 +51,10 @@
 - Step 12 adds a non-root Linux/amd64 Compose deployment. Executable and isolated
   container workflows verify restart/persistence, Atom/RSS, SSH sessions, scheduled
   and canceled refresh, backup/restore, and cleanup; required checks pass.
-- README is a short landing page; detailed guides live in `docs/`. The refreshed
+- README is a short landing page; guides live in `docs/`. The 1920×1080 demo
   GIF demonstrates SSH, feed search, full articles, scrolling, and preview toggle.
 
 ## Local tooling
-- `.opencode/` and non-plan `.agents/` files are ignored and untracked; roadmap
-  plans remain versioned; the formerly tracked review command is preserved locally.
+- All `.opencode/` and `.agents/` files, including plans, are ignored and untracked;
+  formerly tracked plans and review tooling are preserved locally.
 - Split roadmap work into small, independently reviewable commits per `AGENTS.md`.

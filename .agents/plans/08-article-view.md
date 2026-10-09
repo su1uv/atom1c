@@ -35,9 +35,9 @@ Roadmap: [Step 8](roadmap.md#8-implement-the-article-view).
    Check whether AGENTS.md needs updating.
 
 These are work increments, not fixed commit boundaries. Split further when needed;
-each authorized atomic commit must compile and pass applicable checks and include
-its tests/documentation. Implementation commits are authorized on one new local
-step-8 branch. Publishing still requires fresh authorization.
+each atomic commit must compile and pass applicable checks and include
+its tests/documentation. Make implementation commits as work proceeds. Publishing
+still requires fresh explicit authorization.
 
 ## Verification
 
@@ -45,7 +45,7 @@ Use Go 1.26.5 or newer. Write and run meaningful failing behavioral tests first;
 UI-only styling is exempt. Use temporary SQLite and local HTTP fixtures, not
 external network tests. Budget Lipgloss v2 border-inclusive dimensions.
 
-Before every authorized commit, review the diff and run:
+Before every commit, review the diff and run:
 
 ```sh
 go test ./... -timeout 30s

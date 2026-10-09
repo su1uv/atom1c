@@ -14,6 +14,8 @@ Current problems; update as work resolves them. This is a snapshot, not the road
 - Steps 8–10 now provide the persisted full-screen and full-article reader plus
   public-key SSH access. JavaScript/authenticated websites remain deferred.
 - Step 11 server-level automatic refresh is next; feed refresh remains explicit.
+- Atomic implementation commits may be made as work proceeds; each push/PR still
+  needs fresh explicit authorization and must use a new branch targeting `main`.
 
 ## Verification baseline
 - Historical steps 1–5 established timestamp, Atom/RSS parsing, transactional

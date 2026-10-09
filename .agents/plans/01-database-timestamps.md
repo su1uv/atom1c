@@ -95,7 +95,8 @@ Avoid relying on sleeps or assuming second-level timestamps are unique.
 The original commit guidance grouped the complete implementation as one fix; that
 guidance is superseded. A plan is not a commit boundary: split future work into
 small, independently reviewable and verified changes as required by
-[AGENTS.md](../../AGENTS.md). Commit only when explicitly authorized.
+[AGENTS.md](../../AGENTS.md). Make atomic implementation commits as work proceeds;
+separate commit authorization is not required.
 
 Suggested message: `[fix]: reconcile SQLite timestamps`.
 

@@ -150,5 +150,6 @@ small, independently reviewable and verified changes as required by
 
 Suggested implementation commit: `[feat]: normalize Atom and RSS feeds`.
 
-Commit only with explicit authorization. Publishing requires fresh explicit
-authorization to push a new remote branch and open a PR targeting `main`.
+Make atomic implementation commits as work proceeds; separate commit authorization
+is not required. Publishing requires fresh explicit authorization to push a new
+remote branch and open a PR targeting `main`.

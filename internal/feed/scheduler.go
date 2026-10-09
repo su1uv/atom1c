@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -100,7 +101,59 @@ func redactRefreshError(err error, feedURL string) string {
 	if feedURL != "" {
 		message = strings.ReplaceAll(message, feedURL, safeRefreshURL(feedURL))
 	}
-	return refreshErrorURLPattern.ReplaceAllStringFunc(message, safeRefreshURL)
+	var redacted strings.Builder
+	for position := 0; position < len(message); {
+		if message[position] == '"' {
+			end := quotedStringEnd(message, position)
+			if end < 0 {
+				redacted.WriteString(message[position:])
+				break
+			}
+			quoted := message[position : end+1]
+			value, err := strconv.Unquote(quoted)
+			if err == nil && isRefreshURL(value) {
+				redacted.WriteString(strconv.Quote(safeRefreshURL(value)))
+			} else {
+				redacted.WriteString(quoted)
+			}
+			position = end + 1
+			continue
+		}
+
+		end := strings.IndexByte(message[position:], '"')
+		if end < 0 {
+			end = len(message)
+		} else {
+			end += position
+		}
+		segment := message[position:end]
+		if location := refreshErrorURLPattern.FindStringIndex(segment); location != nil {
+			redacted.WriteString(segment[:location[0]])
+			redacted.WriteString("[redacted URL]")
+		} else {
+			redacted.WriteString(segment)
+		}
+		position = end
+	}
+	return redacted.String()
+}
+
+func quotedStringEnd(value string, start int) int {
+	for position := start + 1; position < len(value); position++ {
+		if value[position] == '\\' {
+			position++
+			continue
+		}
+		if value[position] == '"' {
+			return position
+		}
+	}
+	return -1
+}
+
+func isRefreshURL(value string) bool {
+	value = strings.ToLower(value)
+	return strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://")
 }
 
 func safeRefreshURL(rawURL string) string {

@@ -1,6 +1,7 @@
 # Step 12 — Verify and document the complete workflow
 
-Status: in progress.
+Status: complete. Verified on 2026-10-09 with Go 1.27.1, Docker Engine 29.7.2,
+and Docker Compose 5.5.1 on Linux/amd64.
 
 ## Confirmed scope
 
@@ -116,3 +117,9 @@ and PR requires fresh explicit authorization, a new remote branch, and target
   backup/restore instructions are documented. The executable and Compose workflows
   use temporary keys/storage and local fixtures; production placeholder searches
   found no obsolete mock code.
+- Full tests, vet, compile-only tests, and targeted executable race runs pass.
+  `go run -race ./scripts/compose-smoke` passes the complete container workflow.
+  A manual SIGTERM interruption during startup removed the isolated Compose project.
+- Independent review of the implementation found no critical or important issues.
+  The smoke runner's port-allocation race and interrupted-run cleanup findings
+  were addressed and verified in a follow-up fix.

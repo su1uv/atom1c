@@ -37,10 +37,13 @@
 
 ## Run and verify
 - Use Go 1.26.5 or newer, as required by `go.mod`.
-- Run from the root: `GOOSE_DBSTRING=./atom1c.db go run .`; startup also loads `.env`.
-  The TUI requires an interactive terminal.
-- Startup automatically applies embedded Goose migrations. Only `GOOSE_DBSTRING`
-  configures the database; other Goose variables in `.env.example` are unused.
+- Run from the root: `GOOSE_DBSTRING=./atom1c.db go run .`; startup also loads `.env`
+  and launches the SSH server (not a local TUI). The current OS account's
+  `~/.ssh/authorized_keys` must contain a plain public-key line. Connect with an
+  interactive SSH PTY; default listen address is `127.0.0.1:23234`.
+- Startup automatically applies embedded Goose migrations. `GOOSE_DBSTRING` is the
+  database setting; optional SSH settings are `ATOM1C_SSH_ADDR`,
+  `ATOM1C_AUTHORIZED_KEYS`, and `ATOM1C_SSH_HOST_KEY`.
 - Tests: `go test ./... -timeout 30s`; feed tests use Atom/RSS fixtures and local
   HTTP servers.
 - Network-free compile check: `go test ./... -run '^$'`; static check: `go vet ./...`.

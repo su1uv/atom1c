@@ -9,10 +9,4 @@ import (
 type State struct {
 	Db    *database.Queries
 	SQLDB *sql.DB
-	Cfg   *Config
-}
-
-type Config struct {
-	DbURL           string
-	CurrentUsername string
 }

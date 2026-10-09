@@ -44,7 +44,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	refreshInterval, err := internal.LoadRefreshInterval(os.Getenv)
+	refreshInterval, err := internal.LoadRefreshInterval(os.LookupEnv)
 	if err != nil {
 		return err
 	}

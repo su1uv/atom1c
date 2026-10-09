@@ -153,6 +153,13 @@ optional; defaults are shown below:
 | `ATOM1C_SSH_ADDR` | `127.0.0.1:23234` | SSH listen address |
 | `ATOM1C_AUTHORIZED_KEYS` | `~/.ssh/authorized_keys` | Public keys allowed to log in |
 | `ATOM1C_SSH_HOST_KEY` | `$XDG_DATA_HOME/atom1c/ssh_host_ed25519_key` or `~/.local/share/atom1c/ssh_host_ed25519_key` | Persistent Ed25519 host key |
+| `ATOM1C_REFRESH_INTERVAL` | `15m` | Automatic feed refresh interval; `0` disables scheduled refresh |
+
+Automatic refresh runs one sweep at startup, then waits the configured interval
+after each sweep completes. Feeds refresh sequentially; individual failures are
+logged and do not stop the rest of a sweep. Manual refresh remains available when
+scheduling is disabled. Set a Go duration such as `30m`; malformed and negative
+values are rejected at startup.
 
 See `.env.example` for a minimal configuration template.
 

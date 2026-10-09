@@ -112,5 +112,9 @@ authorization, uses a new remote branch, and targets `main`.
   feeds, disable behavior, and cancellation during a sweep. `sqlc generate`, full tests,
   vet, network-free compile, diff checks, and 10 targeted race-test runs passed
   with Go 1.27.1 on 2026-10-09.
-- Scheduler, server integration, and public configuration documentation remain
-  pending.
+- Server lifecycle tests verify a startup refresh with no SSH clients, manual
+  refresh when scheduling is disabled, cancellation of in-flight HTTP refreshes,
+  and database usability after cleanup. README and `.env.example` document the
+  interval and sweep behavior. Full tests, vet, network-free compile, diff checks,
+  and 10 targeted race-test runs passed with Go 1.27.1 on 2026-10-09.
+- Connected-session reload behavior remains pending.

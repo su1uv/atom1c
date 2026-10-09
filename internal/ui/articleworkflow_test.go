@@ -73,6 +73,26 @@ func (s *fakeArticleCache) Save(_ context.Context, params database.UpsertArticle
 	return row, nil
 }
 
+func TestArticleFetchInheritsSessionCancellation(t *testing.T) {
+	sessionCtx, cancel := context.WithCancel(context.Background())
+	fetcher := &fakeArticleFetcher{block: true, started: make(chan struct{})}
+	m := testModel()
+	m.ctx = sessionCtx
+	m.readerOpen = true
+	m.reader.fetchSession = 1
+	m.reader.article.post = database.Post{ID: 7, Link: "https://example.test/article"}
+	m.articleFetcher = fetcher
+	cmd := m.beginArticleFetch()
+	done := make(chan tea.Msg, 1)
+	go func() { done <- cmd() }()
+	<-fetcher.started
+	cancel()
+	result := (<-done).(articleFetchResult)
+	if !errors.Is(result.err, context.Canceled) {
+		t.Fatalf("article fetch error = %v, want context.Canceled", result.err)
+	}
+}
+
 func TestArticleOpenShowsPreviewThenFetchesAndCachesFullArticle(t *testing.T) {
 	m := readerFixture()
 	fetcher := &fakeArticleFetcher{article: reader.Article{URL: "https://example.test/article", Title: "Website title", Author: "Writer", SiteName: "Publisher", Markdown: "# Full body\n\n- Extracted list"}}

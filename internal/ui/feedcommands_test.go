@@ -34,6 +34,36 @@ type memoryFeedStore struct {
 	refreshCalls []database.Feed
 }
 
+type contextCheckingFeedStore struct{}
+
+func (contextCheckingFeedStore) GetPage(ctx context.Context, _ handlers.FeedPageParams) (handlers.FeedPage, error) {
+	return handlers.FeedPage{}, ctx.Err()
+}
+func (contextCheckingFeedStore) Add(context.Context, handlers.AddFeedParams) (database.Feed, error) {
+	return database.Feed{}, nil
+}
+func (contextCheckingFeedStore) Position(context.Context, int64, string) (int64, error) {
+	return 0, nil
+}
+func (contextCheckingFeedStore) GetPosts(context.Context, int64) ([]database.Post, error) {
+	return nil, nil
+}
+func (contextCheckingFeedStore) Refresh(context.Context, database.Feed) error { return nil }
+
+func TestFeedPageCommandInheritsSessionCancellation(t *testing.T) {
+	sessionCtx, cancel := context.WithCancel(context.Background())
+	m := testModel()
+	m.ctx = sessionCtx
+	m.feedStore = contextCheckingFeedStore{}
+	m.feedPageSize = 10
+	cmd := m.beginFeedPageLoad()
+	cancel()
+	result := runCommand(t, cmd).(feedPageResult)
+	if !errors.Is(result.err, context.Canceled) {
+		t.Fatalf("feed load error = %v, want context.Canceled", result.err)
+	}
+}
+
 func (s *memoryFeedStore) GetPage(_ context.Context, params handlers.FeedPageParams) (handlers.FeedPage, error) {
 	s.pageCalls = append(s.pageCalls, params)
 	if s.getPageErr != nil {
@@ -421,6 +451,42 @@ func TestAddFeedWorkflowPersistsAcrossDatabaseReopen(t *testing.T) {
 	}
 	if got := restarted.feeds.list.Items()[0].(item).name; got != "Persistent feed" {
 		t.Fatalf("feed after restart = %q, want Persistent feed", got)
+	}
+}
+
+func TestSeparateSessionsReloadSharedDatabaseChanges(t *testing.T) {
+	db := openUIWorkflowDB(t, filepath.Join(t.TempDir(), "shared-sessions.db"))
+	defer db.Close()
+	state := &internal.State{Db: database.New(db), SQLDB: db}
+	first := newModel(state).(model)
+	second := newModel(state).(model)
+	for _, session := range []*model{&first, &second} {
+		var cmd tea.Cmd
+		*session, cmd = applyMessage(*session, tea.WindowSizeMsg{Width: 100, Height: 20})
+		*session, _ = applyMessage(*session, runCommand(t, cmd))
+	}
+
+	first = updateModel(first, press("a", 'a'))
+	first.addFeed.inputs[0].SetValue("Shared feed")
+	first.addFeed.inputs[1].SetValue("https://example.test/shared")
+	first.addFeed.focusIndex = len(first.addFeed.inputs)
+	var cmd tea.Cmd
+	first, cmd = applyMessage(first, press("enter", tea.KeyEnter))
+	first, _ = applyMessage(first, runCommand(t, cmd))
+	if first.feedTotal != 1 {
+		t.Fatalf("writer session feed total = %d, want 1", first.feedTotal)
+	}
+	if second.feedTotal != 0 {
+		t.Fatalf("other session changed before reload: total = %d", second.feedTotal)
+	}
+
+	cmd = second.beginFeedPageLoad()
+	second, _ = applyMessage(second, runCommand(t, cmd))
+	if second.feedTotal != 1 || len(second.feeds.list.Items()) != 1 {
+		t.Fatalf("reloaded session did not observe shared feed: total=%d items=%d", second.feedTotal, len(second.feeds.list.Items()))
+	}
+	if got := second.feeds.list.Items()[0].(item).name; got != "Shared feed" {
+		t.Fatalf("reloaded session feed name = %q, want Shared feed", got)
 	}
 }
 

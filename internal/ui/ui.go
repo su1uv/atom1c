@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 
 	"charm.land/bubbles/v2/help"
@@ -18,7 +19,20 @@ func NewProgram(s *internal.State) *tea.Program {
 	return tea.NewProgram(newModel(s))
 }
 
+// NewModel creates an independent reader UI whose asynchronous work is canceled
+// when sessionContext ends.
+func NewModel(s *internal.State, sessionContext context.Context) tea.Model {
+	if sessionContext == nil {
+		sessionContext = context.Background()
+	}
+	return newModelWithContext(s, sessionContext)
+}
+
 func newModel(s *internal.State) tea.Model {
+	return newModelWithContext(s, context.Background())
+}
+
+func newModelWithContext(s *internal.State, sessionContext context.Context) tea.Model {
 	styles := newStyles(false)
 	keys := newListKeyMap()
 	var store feedStore
@@ -33,6 +47,7 @@ func newModel(s *internal.State) tea.Model {
 	}
 
 	return model{
+		ctx:                sessionContext,
 		styles:             styles,
 		keys:               keys,
 		focus:              focusFeeds,
@@ -76,6 +91,7 @@ func (f item) FilterValue() string { return f.name }
 
 // model owns application-level focus and routes each key to one owner.
 type model struct {
+	ctx       context.Context
 	styles    Styles
 	keys      *listKeyMap
 	width     int
@@ -125,6 +141,13 @@ type model struct {
 	articleCache     articleCacheStore
 	articleFetcher   articleFetcher
 	darkBackground   bool
+}
+
+func (m model) sessionContext() context.Context {
+	if m.ctx == nil {
+		return context.Background()
+	}
+	return m.ctx
 }
 
 func (m model) Init() tea.Cmd {

@@ -58,10 +58,11 @@ func (m *model) beginSavedFeedReload() tea.Cmd {
 	m.feedErr = ""
 	request := m.feedRequest
 	store := m.feedStore
+	sessionCtx := m.sessionContext()
 	feedID := m.pendingSavedFeedID
 	pageSize := max(m.feedPageSize, 1)
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), feedOperationTimeout)
+		ctx, cancel := context.WithTimeout(sessionCtx, feedOperationTimeout)
 		defer cancel()
 		if store == nil {
 			return savedFeedPageResult{request: request, err: errFeedDatabaseUnavailable}
@@ -90,8 +91,9 @@ func (m model) feedPageCommand(request uint64) tea.Cmd {
 	page := m.feedPage
 	pageSize := max(m.feedPageSize, 1)
 	search := m.feedQuery
+	sessionCtx := m.sessionContext()
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), feedOperationTimeout)
+		ctx, cancel := context.WithTimeout(sessionCtx, feedOperationTimeout)
 		defer cancel()
 		result, err := store.GetPage(ctx, handlers.FeedPageParams{
 			Search: search,
@@ -117,8 +119,9 @@ func (m *model) beginFeedSave(params handlers.AddFeedParams) tea.Cmd {
 	m.addFeed.err = ""
 	pageSize := max(m.feedPageSize, 1)
 	store := m.feedStore
+	sessionCtx := m.sessionContext()
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), feedOperationTimeout)
+		ctx, cancel := context.WithTimeout(sessionCtx, feedOperationTimeout)
 		defer cancel()
 		if store == nil {
 			return feedSaveResult{request: request, pageSize: pageSize, saveErr: errFeedDatabaseUnavailable}

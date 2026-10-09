@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"io"
-	"sort"
 	"sync"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 )
 
 const refreshOperationTimeout = 15 * time.Second
-const maxCoalescedRefreshFeedIDs = 64
 
 var errRefreshCoordinatorClosed = errors.New("feed refresh coordinator is closed")
 
@@ -45,15 +43,15 @@ type refreshOperation struct {
 }
 
 type refreshSubscription struct {
-	mu        sync.Mutex
-	owner     *RefreshCoordinator
-	id        uint64
-	feedIDs   map[int64]struct{}
-	reconcile bool
-	wake      chan struct{}
-	done      chan struct{}
-	closed    bool
-	once      sync.Once
+	mu            sync.Mutex
+	owner         *RefreshCoordinator
+	id            uint64
+	watchedFeedID int64
+	pending       bool
+	wake          chan struct{}
+	done          chan struct{}
+	closed        bool
+	once          sync.Once
 }
 
 // NewRefreshCoordinator creates a process-owned refresh coordinator backed by
@@ -174,10 +172,9 @@ func (c *RefreshCoordinator) Subscribe(ctx context.Context) internal.FeedRefresh
 		ctx = context.Background()
 	}
 	subscription := &refreshSubscription{
-		owner:   c,
-		feedIDs: make(map[int64]struct{}),
-		wake:    make(chan struct{}, 1),
-		done:    make(chan struct{}),
+		owner: c,
+		wake:  make(chan struct{}, 1),
+		done:  make(chan struct{}),
 	}
 	c.mu.Lock()
 	if c.closed {
@@ -217,55 +214,64 @@ func (c *RefreshCoordinator) Close() {
 	c.operationsWG.Wait()
 }
 
+func (s *refreshSubscription) Watch(feedID int64) {
+	s.mu.Lock()
+	if !s.closed && s.watchedFeedID != feedID {
+		s.watchedFeedID = feedID
+		s.pending = false
+		select {
+		case <-s.wake:
+		default:
+		}
+	}
+	s.mu.Unlock()
+}
+
 func (s *refreshSubscription) Next(ctx context.Context) (internal.FeedRefreshNotification, error) {
 	if ctx == nil {
 		return internal.FeedRefreshNotification{}, errors.New("feed refresh subscription context is nil")
 	}
-	select {
-	case <-ctx.Done():
-		s.Close()
-		return internal.FeedRefreshNotification{}, ctx.Err()
-	case <-s.done:
-		return internal.FeedRefreshNotification{}, io.EOF
-	case <-s.wake:
-	}
-	if err := ctx.Err(); err != nil {
-		s.Close()
-		return internal.FeedRefreshNotification{}, err
-	}
+	for {
+		select {
+		case <-ctx.Done():
+			s.Close()
+			return internal.FeedRefreshNotification{}, ctx.Err()
+		case <-s.done:
+			return internal.FeedRefreshNotification{}, io.EOF
+		case <-s.wake:
+		}
+		if err := ctx.Err(); err != nil {
+			s.Close()
+			return internal.FeedRefreshNotification{}, err
+		}
 
-	s.mu.Lock()
-	if s.closed {
+		s.mu.Lock()
+		if s.closed {
+			s.mu.Unlock()
+			return internal.FeedRefreshNotification{}, io.EOF
+		}
+		if !s.pending {
+			s.mu.Unlock()
+			continue
+		}
+		notification := internal.FeedRefreshNotification{FeedID: s.watchedFeedID}
+		s.pending = false
+		select {
+		case <-s.wake:
+		default:
+		}
 		s.mu.Unlock()
-		return internal.FeedRefreshNotification{}, io.EOF
+		return notification, nil
 	}
-	select {
-	case <-s.wake:
-	default:
-	}
-	notification := internal.FeedRefreshNotification{FeedIDs: make([]int64, 0, len(s.feedIDs)), Reconcile: s.reconcile}
-	for feedID := range s.feedIDs {
-		notification.FeedIDs = append(notification.FeedIDs, feedID)
-	}
-	s.feedIDs = make(map[int64]struct{})
-	s.reconcile = false
-	s.mu.Unlock()
-	sort.Slice(notification.FeedIDs, func(i, j int) bool { return notification.FeedIDs[i] < notification.FeedIDs[j] })
-	return notification, nil
 }
 
 func (s *refreshSubscription) notify(feedID int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.closed || s.reconcile {
+	if s.closed || s.pending || s.watchedFeedID != feedID {
 		return
 	}
-	if _, exists := s.feedIDs[feedID]; !exists && len(s.feedIDs) >= maxCoalescedRefreshFeedIDs {
-		s.feedIDs = make(map[int64]struct{})
-		s.reconcile = true
-	} else {
-		s.feedIDs[feedID] = struct{}{}
-	}
+	s.pending = true
 	select {
 	case s.wake <- struct{}{}:
 	default:
@@ -285,8 +291,8 @@ func (s *refreshSubscription) markClosed() {
 	s.mu.Lock()
 	if !s.closed {
 		s.closed = true
-		s.feedIDs = nil
-		s.reconcile = false
+		s.pending = false
+		s.watchedFeedID = 0
 		close(s.done)
 	}
 	s.mu.Unlock()

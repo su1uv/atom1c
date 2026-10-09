@@ -61,14 +61,7 @@ func (m model) updateFeedRefreshNotification(msg feedRefreshNotification) (tea.M
 		return m, nil
 	}
 	commands := []tea.Cmd{m.feedRefreshSubscriptionCommand()}
-	reloadOpenFeed := msg.notification.Reconcile && m.openFeedID != 0
-	for _, feedID := range msg.notification.FeedIDs {
-		if feedID == m.openFeedID && m.openFeedID != 0 {
-			reloadOpenFeed = true
-			break
-		}
-	}
-	if reloadOpenFeed {
+	if msg.notification.FeedID == m.openFeedID && m.openFeedID != 0 {
 		commands = append(commands, m.beginPostLoad(m.currentPostSelectionID()))
 	}
 	return m, tea.Batch(commands...)
@@ -84,6 +77,9 @@ func (m *model) openFeed(selected item) tea.Cmd {
 	m.openFeedID = selected.id
 	m.openFeedName = selected.name
 	m.openFeedURL = selected.url
+	if m.refreshSubscription != nil {
+		m.refreshSubscription.Watch(selected.id)
+	}
 	m.postErr = ""
 	m.postErrorAction = postNoRetry
 	return m.beginPostLoad(m.currentPostSelectionID())

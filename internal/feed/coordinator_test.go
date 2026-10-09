@@ -212,6 +212,8 @@ func TestRefreshCoordinatorCoalescesSuccessNotifications(t *testing.T) {
 	defer subscription.Close()
 	secondSubscription := coordinator.Subscribe(context.Background())
 	defer secondSubscription.Close()
+	subscription.Watch(1)
+	secondSubscription.Watch(2)
 
 	for _, id := range []int64{1, 2, 3} {
 		if err := coordinator.Refresh(context.Background(), database.Feed{ID: id}); id == 3 {
@@ -223,26 +225,30 @@ func TestRefreshCoordinatorCoalescesSuccessNotifications(t *testing.T) {
 		}
 	}
 
-	for _, listener := range []internal.FeedRefreshSubscription{subscription, secondSubscription} {
+	for _, test := range []struct {
+		listener internal.FeedRefreshSubscription
+		feedID   int64
+	}{{listener: subscription, feedID: 1}, {listener: secondSubscription, feedID: 2}} {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		notification, err := listener.Next(ctx)
+		notification, err := test.listener.Next(ctx)
 		cancel()
 		if err != nil {
 			t.Fatalf("read refresh notifications: %v", err)
 		}
-		if notification.Reconcile || len(notification.FeedIDs) != 2 || notification.FeedIDs[0] != 1 || notification.FeedIDs[1] != 2 {
-			t.Fatalf("refresh notification = %#v, want feed IDs [1 2] for each connected session", notification)
+		if notification.FeedID != test.feedID {
+			t.Fatalf("refresh notification = %#v, want feed ID %d for connected session", notification, test.feedID)
 		}
 	}
 }
 
-func TestRefreshCoordinatorBoundsPendingNotificationState(t *testing.T) {
+func TestRefreshSubscriptionTracksOnlyWatchedFeedAndCoalesces(t *testing.T) {
 	coordinator := newRefreshCoordinator(context.Background(), func(context.Context, database.Feed) error { return nil })
 	defer coordinator.Close()
 	subscription := coordinator.Subscribe(context.Background())
 	defer subscription.Close()
+	subscription.Watch(1)
 
-	for feedID := int64(1); feedID <= maxCoalescedRefreshFeedIDs+10; feedID++ {
+	for _, feedID := range []int64{1, 1, 2} {
 		if err := coordinator.Refresh(context.Background(), database.Feed{ID: feedID}); err != nil {
 			t.Fatalf("refresh feed %d: %v", feedID, err)
 		}
@@ -251,23 +257,26 @@ func TestRefreshCoordinatorBoundsPendingNotificationState(t *testing.T) {
 	notification, err := subscription.Next(ctx)
 	cancel()
 	if err != nil {
-		t.Fatalf("read overflow notification: %v", err)
+		t.Fatalf("read watched-feed notification: %v", err)
 	}
-	if !notification.Reconcile || len(notification.FeedIDs) != 0 {
-		t.Fatalf("overflow notification = %#v, want reconciliation marker without an unbounded ID list", notification)
+	if notification.FeedID != 1 {
+		t.Fatalf("watched notification = %#v, want feed ID 1", notification)
 	}
 
-	if err := coordinator.Refresh(context.Background(), database.Feed{ID: 1000}); err != nil {
-		t.Fatalf("refresh after reconciliation: %v", err)
+	subscription.Watch(2)
+	for _, feedID := range []int64{1, 2} {
+		if err := coordinator.Refresh(context.Background(), database.Feed{ID: feedID}); err != nil {
+			t.Fatalf("refresh feed %d after watch change: %v", feedID, err)
+		}
 	}
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second)
 	notification, err = subscription.Next(ctx)
 	cancel()
 	if err != nil {
-		t.Fatalf("read notification after reconciliation: %v", err)
+		t.Fatalf("read notification after watch change: %v", err)
 	}
-	if notification.Reconcile || len(notification.FeedIDs) != 1 || notification.FeedIDs[0] != 1000 {
-		t.Fatalf("notification after reconciliation = %#v, want feed ID 1000", notification)
+	if notification.FeedID != 2 {
+		t.Fatalf("notification after watch change = %#v, want feed ID 2", notification)
 	}
 }
 
@@ -285,6 +294,7 @@ func TestRefreshCoordinatorPersistsBeforeNotifying(t *testing.T) {
 	defer coordinator.Close()
 	subscription := coordinator.Subscribe(context.Background())
 	defer subscription.Close()
+	subscription.Watch(storedFeed.ID)
 
 	if err := coordinator.Refresh(context.Background(), storedFeed); err != nil {
 		t.Fatalf("refresh feed: %v", err)
@@ -295,7 +305,7 @@ func TestRefreshCoordinatorPersistsBeforeNotifying(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read success notification: %v", err)
 	}
-	if notification.Reconcile || len(notification.FeedIDs) != 1 || notification.FeedIDs[0] != storedFeed.ID {
+	if notification.FeedID != storedFeed.ID {
 		t.Fatalf("notification = %#v, want feed ID %d", notification, storedFeed.ID)
 	}
 	posts, err := queries.GetPostsByFeed(context.Background(), storedFeed.ID)

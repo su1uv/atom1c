@@ -22,13 +22,13 @@ type FeedRefreshManager interface {
 
 // FeedRefreshSubscription returns coalesced notifications after successful refreshes.
 type FeedRefreshSubscription interface {
+	// Watch selects the one feed whose successful refreshes should be reported; zero clears it.
+	Watch(int64)
 	Next(context.Context) (FeedRefreshNotification, error)
 	Close()
 }
 
-// FeedRefreshNotification carries changed feed IDs. Reconcile asks subscribers
-// to reload their current feed when the bounded ID set overflowed.
+// FeedRefreshNotification carries a successful refresh for the watched feed.
 type FeedRefreshNotification struct {
-	FeedIDs   []int64
-	Reconcile bool
+	FeedID int64
 }

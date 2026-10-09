@@ -40,7 +40,8 @@ Status: implemented and verified. See
   use `GetNextFeedToFetch`: a failing feed remains oldest by successful-fetch time
   and could otherwise prevent other feeds from being attempted.
 - Use coalescing success subscriptions so each session can receive updates without
-  blocking persistence or accumulating an unbounded event queue.
+  blocking persistence or accumulating an unbounded event queue. Each subscription
+  tracks only the session's currently open feed.
 
 ## Independently reviewable increments
 
@@ -104,8 +105,8 @@ authorization, uses a new remote branch, and targets `main`.
   network-free compile, and diff checks passed with Go 1.27.1 on 2026-10-09.
 - Coordinator tests cover same-feed sharing and result propagation, different-feed
   independence, independent and last-caller cancellation, shutdown cancellation and
-  waiting, coalesced success-only notifications, bounded notification overflow
-  reconciliation, and persistence before notification.
+  waiting, success-only notifications for the watched feed, coalescing repeated
+  notifications, watch changes, and persistence before notification.
   Full tests, vet, network-free compile, diff checks, and 10 targeted race-test runs
   passed with Go 1.27.1 on 2026-10-09.
 - The refresh feed query returns a complete, deterministically ordered snapshot.
